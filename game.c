@@ -16,6 +16,17 @@ typedef struct _Board {
     Piece **cells;
 } Board;
 
+typedef struct _Move {
+    int x;
+    int y;
+} Move;
+
+typedef struct _Player {
+    char name[50];
+    int score;
+    int pieces[5];
+} Player;
+
 /* Initialize the board with random pieces */
 Board *initBoard(int N)
 {
