@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define INVALID_MOVE 0
+
 typedef enum _Piece {
     EMPTY = ' ',
     BLUE = 'A',
@@ -16,15 +18,26 @@ typedef struct _Board {
     Piece **cells;
 } Board;
 
+typedef enum _Direction {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+} Direction;
+
 typedef struct _Move {
     int PieceX;
     int PieceY;
-
-    int TargetX;
-    int TargetY;
+    Direction direction;
 } Move;
 
+typedef enum _PlayerType {
+    HUMAN,
+    COMPUTER
+} PlayerType;
+
 typedef struct _Player {
+    PlayerType type;
     char name[50];
     int score;
     int pieces[5];
@@ -37,37 +50,18 @@ typedef struct _Player {
  * - move: the move to be checked
  *
  * Returns:
+ * - INVALID_MOVE if the move is invalid
+ * - Piece: the piece that is taken by the move
 */
 Piece isMoveValid(Board *board, Move move)
 {
-    int toRight = 0;
-    int toTop = 0;
-
-    if (board->cells[move.PieceX][move.PieceY] == EMPTY)
-    {
-        return 0;
-    }
-
-    if (move.PieceX == move.TargetX && move.PieceY == move.TargetY)
-    {
-        return 0;
-    }
-
-    toRight = move.TargetX - move.PieceX;
-    toTop = move.TargetY - move.PieceY;
-
-    if (toRight != 0 && toTop != 0)
-    {
-        return 0;
-    }
-
-    toRight = toRight > 0 ? 1 : -1;
-    toTop = toTop > 0 ? 1 : -1;
+    int toRight = move.direction == RIGHT ? 1 : move.direction == LEFT ? -1 : 0;
+    int toTop = move.direction == UP ? -1 : move.direction == DOWN ? 1 : 0;
 
     Piece p = board->cells[move.PieceX + toRight][move.PieceY + toTop];
     if (p == EMPTY)
     {
-        return 0;
+        return INVALID_MOVE;
     }
 
     return p;
@@ -154,8 +148,81 @@ void printBoard(Board *board)
 
 void movePiece(Board *board, Move move)
 {
-    board->cells[move.TargetX][move.TargetY] = board->cells[move.PieceX][move.PieceY];
+    int toBottom = move.direction == DOWN ? +2 : move.direction == UP ? -2 : 0;
+    int toRight = move.direction == RIGHT ? +2 : move.direction == LEFT ? -2 : 0;
+
+    board->cells[move.PieceX + toBottom][move.PieceY + toRight] = board->cells[move.PieceX][move.PieceY];
     board->cells[move.PieceX][move.PieceY] = EMPTY;
+
+    toRight /= 2;
+    toBottom /= 2;
+
+    board->cells[move.PieceX + toBottom][move.PieceY + toRight] = EMPTY;
+}
+
+Move humanMakeMove(Board *board)
+{
+    Move move;
+    int x, y;
+    char direction;
+    printf("Enter the coordinates of the piece to move\n");
+    printf("X Y: ");
+    scanf("%d %d", &x, &y);
+    move.PieceX = x - 1;
+    move.PieceY = y - 1;
+
+    printf("Enter the direction to move (W, A, S, D): ");
+    scanf(" %c", &direction);
+    if (direction > 'A')
+    {
+        direction -= 'a' - 'A';
+    }
+    switch (direction)
+    {
+    case 'W':
+        move.direction = UP;
+        break;
+    case 'S':
+        move.direction = DOWN;
+        break;
+    case 'A':
+        move.direction = LEFT;
+        break;
+    case 'D':
+        move.direction = RIGHT;
+        break;
+    default:
+        printf("Invalid direction\n");
+        return humanMakeMove(board);
+    }
+
+    return move;
+}
+
+Move computerMakeMove(Board *board)
+{
+    Move move;
+    move.PieceX = rand() % board->size;
+    move.PieceY = rand() % board->size;
+    move.direction = rand() % 4;
+
+    return move;
+}
+
+/* Make a move for the player
+ *
+ * Parameters:
+ * - board: the game board
+ * - player: the player who will make the move
+ * Returns:
+ * - the move made by the player
+*/
+Move playerMakeMove(Board *board, Player player)
+{
+    if (player.type == HUMAN)
+        return humanMakeMove(board);
+    else
+        return computerMakeMove(board);
 }
 
 int main()
@@ -175,9 +242,8 @@ int main()
     }
     printBoard(board);
 
-    Player player1 = {"Ensar", 0, {0, 0, 0, 0, 0}};
-    Player player2 = {"Orçun", 0, {0, 0, 0, 0, 0}};
-
+    Player player1 = {HUMAN, "Ensar", 0, {0, 0, 0, 0, 0}};
+    Player player2 = {HUMAN, "Orçun", 0, {0, 0, 0, 0, 0}};
 
     while (!isGameOver)
     {
@@ -186,24 +252,17 @@ int main()
         int x, y;
         Piece p;
 
-        printf("Enter the coordinates of the piece to move\n");
-        printf("X Y: ");
-        scanf("%d %d", &move.PieceX, &move.PieceY);
-
-        printf("Enter the coordinates of the target location\n");
-        printf("X Y: ");
-        scanf("%d %d", &x, &y);
-        move.PieceX = x;
-        move.PieceY = y;
-
+        move = playerMakeMove(board, player1);
         p = isMoveValid(board, move);
-        if (p == 0)
+        if (p == INVALID_MOVE)
         {
             printf("Invalid move\n");
             continue;
         }
 
-        printf("Piece takan: %c\n", p);
+        int toRight = move.direction == RIGHT ? 1 : move.direction == LEFT ? -1 : 0;
+        int toBottom = move.direction == DOWN ? 1 : move.direction == UP ? -1 : 0;
+        printf("Piece taken: %c, at location %d %d\n", p, move.PieceX + toBottom + 1, move.PieceY + toRight + 1);
 
         movePiece(board, move);
         printBoard(board);
