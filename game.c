@@ -17,8 +17,11 @@ typedef struct _Board {
 } Board;
 
 typedef struct _Move {
-    int x;
-    int y;
+    int PieceX;
+    int PieceY;
+
+    int TargetX;
+    int TargetY;
 } Move;
 
 typedef struct _Player {
@@ -26,6 +29,49 @@ typedef struct _Player {
     int score;
     int pieces[5];
 } Player;
+
+/* Check if the move is valid
+ *
+ * Parameters:
+ * - board: the game board
+ * - move: the move to be checked
+ *
+ * Returns:
+*/
+Piece isMoveValid(Board *board, Move move)
+{
+    int toRight = 0;
+    int toTop = 0;
+
+    if (board->cells[move.PieceX][move.PieceY] == EMPTY)
+    {
+        return 0;
+    }
+
+    if (move.PieceX == move.TargetX && move.PieceY == move.TargetY)
+    {
+        return 0;
+    }
+
+    toRight = move.TargetX - move.PieceX;
+    toTop = move.TargetY - move.PieceY;
+
+    if (toRight != 0 && toTop != 0)
+    {
+        return 0;
+    }
+
+    toRight = toRight > 0 ? 1 : -1;
+    toTop = toTop > 0 ? 1 : -1;
+
+    Piece p = board->cells[move.PieceX + toRight][move.PieceY + toTop];
+    if (p == EMPTY)
+    {
+        return 0;
+    }
+
+    return p;
+}
 
 /* Initialize the board with random pieces */
 Board *initBoard(int N)
@@ -106,9 +152,16 @@ void printBoard(Board *board)
     }
 }
 
+void movePiece(Board *board, Move move)
+{
+    board->cells[move.TargetX][move.TargetY] = board->cells[move.PieceX][move.PieceY];
+    board->cells[move.PieceX][move.PieceY] = EMPTY;
+}
+
 int main()
 {
     int N;
+    int isGameOver = 0;
 
     srand(time(NULL));
 
@@ -120,8 +173,47 @@ int main()
     {
         return 1;
     }
-
     printBoard(board);
+
+    Player player1 = {"Ensar", 0, {0, 0, 0, 0, 0}};
+    Player player2 = {"Orçun", 0, {0, 0, 0, 0, 0}};
+
+
+    while (!isGameOver)
+    {
+        printf("p1 move: ");
+        Move move;
+        int x, y;
+        Piece p;
+
+        printf("Enter the coordinates of the piece to move\n");
+        printf("X Y: ");
+        scanf("%d %d", &move.PieceX, &move.PieceY);
+
+        printf("Enter the coordinates of the target location\n");
+        printf("X Y: ");
+        scanf("%d %d", &x, &y);
+        move.PieceX = x;
+        move.PieceY = y;
+
+        p = isMoveValid(board, move);
+        if (p == 0)
+        {
+            printf("Invalid move\n");
+            continue;
+        }
+
+        printf("Piece takan: %c\n", p);
+
+        movePiece(board, move);
+        printBoard(board);
+
+        printf("=====================================\n");
+
+
+
+    }
+
 
     freeBoard(board);
 
