@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define INVALID_MOVE 0
+#define INVALID_PIECE 0
 
 typedef enum _Piece {
     EMPTY = ' ',
@@ -50,7 +50,7 @@ typedef struct _Player {
  * - move: the move to be checked
  *
  * Returns:
- * - INVALID_MOVE if the move is invalid
+ * - INVALID_PIECE if the move is invalid
  * - Piece: the piece that is taken by the move
 */
 Piece isMoveValid(Board *board, Move move)
@@ -61,7 +61,7 @@ Piece isMoveValid(Board *board, Move move)
     Piece p = board->cells[move.PieceX + toRight][move.PieceY + toTop];
     if (p == EMPTY)
     {
-        return INVALID_MOVE;
+        return INVALID_PIECE;
     }
 
     return p;
@@ -254,7 +254,7 @@ int main()
 
         move = playerMakeMove(board, player1);
         p = isMoveValid(board, move);
-        if (p == INVALID_MOVE)
+        if (p == INVALID_PIECE)
         {
             printf("Invalid move\n");
             continue;
