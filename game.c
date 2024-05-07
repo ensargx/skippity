@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdarg.h>
+#include <locale.h>
 
 #define INVALID_PIECE 0
 
@@ -11,10 +12,15 @@
 #define COLOR_BLUE "\x1B[34m"
 #define COLOR_ORANGE "\x1B[35m"
 #define COLOR_WHITE "\x1B[37m"
-
+#define BOLD "\x1B[1m"
+#define UNDERLINE "\x1B[4m"
+#define BLINK "\x1B[5m"
+#define INVERT "\x1B[7m"
+#define HIDDEN "\x1B[8m"
+#define RESET "\x1B[0m"
 #define COLOR_RESET "\x1B[0m"
 
-#define PADDING_TOP 5
+#define PADDING_TOP 3
 #define PADDING_LEFT 5
 
 
@@ -290,6 +296,91 @@ void printBoard(Board *board)
     }
 }
 
+void render(Board *board, Player player1, Player player2)
+{
+    int i, j;
+    clearScreen();
+    moveCursor(PADDING_TOP, PADDING_LEFT);
+
+    for (int i = 0; i <= board->size; i++)
+    {
+        if (i < 10)
+        {
+            printf(BOLD "%d " RESET, i);
+        }
+        else
+        {
+            printf(BOLD "%c " RESET, 'A' + i - 10);
+        }
+    }
+
+    for (i = 1; i <= board->size; i++)
+    {
+        moveCursor(PADDING_TOP + i, PADDING_LEFT);
+        if (i < 10)
+        {
+            printf(BOLD "%d " RESET, i);
+        }
+        else
+        {
+            printf(BOLD "%c " RESET, 'A' + i - 10);
+        }
+    }
+
+    for (i = 0; i < board->size; i++)
+    {
+        for (j = 0; j < board->size; j++)
+        {
+            moveCursor(PADDING_TOP + i + 1, PADDING_LEFT + 2 * (j + 1));
+            switch (board->cells[i][j])
+            {
+            case BLUE:
+                printf(COLOR_BLUE "%c " COLOR_RESET, board->cells[i][j]);
+                break;
+            case GREEN:
+                printf(COLOR_GREEN "%c " COLOR_RESET, board->cells[i][j]);
+                break;
+            case YELLOW:
+                printf(COLOR_YELLOW "%c " COLOR_RESET, board->cells[i][j]);
+                break;
+            case ORANGE:
+                printf(COLOR_ORANGE "%c " COLOR_RESET, board->cells[i][j]);
+                break;
+            case RED:
+                printf(COLOR_RED "%c " COLOR_RESET, board->cells[i][j]);
+                break;
+            case EMPTY:
+                printf("%c ", board->cells[i][j]);
+                break;
+            }
+        }
+    }
+
+    moveCursor(PADDING_TOP, PADDING_LEFT + 2 * board->size + 5);
+    printf("%-10s| Score |", "Player");
+    printf(COLOR_BLUE " A " COLOR_RESET);
+    printf(COLOR_GREEN " B " COLOR_RESET);
+    printf(COLOR_YELLOW " C " COLOR_RESET);
+    printf(COLOR_ORANGE " D " COLOR_RESET);
+    printf(COLOR_RED " E " COLOR_RESET);
+
+    moveCursor(PADDING_TOP + 1, PADDING_LEFT + 2 * board->size + 5);
+    printf("%-10s| %5d | ", player1.name, player1.score);
+    for (i = 0; i < 5; i++)
+    {
+        printf("%-2d ", player1.pieces[i]);
+    }
+
+    moveCursor(PADDING_TOP + 2, PADDING_LEFT + 2 * board->size + 5);
+    printf("%-10s| %5d | ", player2.name, player2.score);
+    for (i = 0; i < 5; i++)
+    {
+        printf("%-2d ", player2.pieces[i]);
+    }
+
+    moveCursor(PADDING_TOP + 2 + board->size, PADDING_LEFT + 2 * board->size + 5);
+}
+
 void movePiece(Board *board, Move *move)
 {
     if (move == NULL)
@@ -368,15 +459,48 @@ int isNextMoveAvailable(Board *board, Move *move)
 
 Move *humanMakeMove(Board *board)
 {
+    char xaxis, yaxis;
     int x, y;
     char direction;
     Move *move;
     Move *firstMove;
     int nextMoveAvailable = 1;
-    printf("Enter the coordinates of the piece to move\n");
-    printf("X Y: ");
-    scanf("%d %d", &x, &y);
-    move = createMove(x - 1, y - 1, 0);
+    printf("Enter the piece to move (x, y): ");
+    scanf(" %c %c", &xaxis, &yaxis);
+    if (xaxis > '0' && xaxis < '9')
+    {
+        x = xaxis - '0' - 1;
+    }
+    else if (xaxis >= 'A' && xaxis <= 'Z')
+    {
+        x = xaxis - 'A' + 9;
+    }
+    else if (xaxis >= 'a' && xaxis <= 'z')
+    {
+        x = xaxis - 'a' + 9;
+    }
+
+    if (yaxis > '0' && yaxis < '9')
+    {
+        y = yaxis - '0' - 1;
+    }
+    else if (yaxis >= 'A' && yaxis <= 'Z')
+    {
+        y = yaxis - 'A' + 9;
+    }
+    else if (yaxis >= 'a' && yaxis <= 'z')
+    {
+        y = yaxis - 'a' + 9;
+    }
+
+    move = createMove(x, y, 0);
+
+    if (isNextMoveAvailable(board, move) == 0)
+    {
+        printf("Seçeceğin taşın amk git başka taş seç\n");
+        return move;
+    }
+
     firstMove = move;
 
     while (nextMoveAvailable)
@@ -471,8 +595,10 @@ int main()
 {
     int N;
     int isGameOver = 0;
+    int i;
 
     srand(time(NULL));
+    setlocale(LC_ALL, "tr_TR.UTF-8");
 
     printf("Enter the board size (n): ");
     scanf("%d", &N);
@@ -482,10 +608,11 @@ int main()
     {
         return 1;
     }
-    printBoard(board);
 
     Player player1 = {HUMAN, "Ensar", 0, {0, 0, 0, 0, 0}};
-    Player player2 = {HUMAN, "Orçun", 0, {0, 0, 0, 0, 0}};
+    Player player2 = {HUMAN, "Orcun", 0, {0, 0, 0, 0, 0}};
+
+    render(board, player1, player2);
 
     while (!isGameOver)
     {
@@ -495,7 +622,6 @@ int main()
         Piece p;
 
         move = playerMakeMove(board, player1);
-        printf("=====================================\n");
     }
 
 
