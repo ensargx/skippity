@@ -1,14 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdarg.h>
 
 #define INVALID_PIECE 0
 
-#define RED(x) "\x1B[31m" x "\x1B[0m"
-#define GREEN(x) "\x1B[32m" x "\x1B[0m"
-#define YELLOW(x) "\x1B[33m" x "\x1B[0m"
-#define BLUE(x) "\x1B[34m" x "\x1B[0m"
-#define ORANGE(x) "\x1B[35m" x "\x1B[0m"
+#define COLOR_RED "\x1B[31m"
+#define COLOR_GREEN "\x1B[32m"
+#define COLOR_YELLOW "\x1B[33m"
+#define COLOR_BLUE "\x1B[34m"
+#define COLOR_ORANGE "\x1B[35m"
+#define COLOR_WHITE "\x1B[37m"
+
+#define COLOR_RESET "\x1B[0m"
+
+#define PADDING_TOP 5
+#define PADDING_LEFT 5
+
 
 typedef enum _Piece {
     EMPTY = ' ',
@@ -55,11 +63,14 @@ void moveCursor(int x, int y)
     printf("\033[%d;%dH", x, y);
 }
 
-void printAt(int x, int y, char *text)
+void printAt(int x, int y, const char *text, ...)
 {
+    va_list args;
     printf("\033[s");
-    moveCursor(x, y);
-    printf("%s", text);
+    va_start(args, text);
+    printf("\033[%d;%dH", x, y);
+    vprintf(text, args);
+    va_end(args);
     printf("\033[u");
 }
 
@@ -112,6 +123,23 @@ void moveCursorRight(int n)
 void moveCursorLeft(int n)
 {
     printf("\033[%dD", n);
+}
+
+void clearInputBuffer()
+{
+    char c;
+    while ((c = getchar()) != '\n' && c != EOF)
+        ;
+}
+
+void hideCursor()
+{
+    printf("\033[?25l");
+}
+
+void showCursor()
+{
+    printf("\033[?25h");
 }
 
 /* Check if the move is valid
@@ -239,19 +267,19 @@ void printBoard(Board *board)
             switch (board->cells[i][j])
             {
             case BLUE:
-                printf(BLUE("%c "), board->cells[i][j]);
+                printf(COLOR_BLUE "%c " COLOR_RESET, board->cells[i][j]);
                 break;
             case GREEN:
-                printf(GREEN("%c "), board->cells[i][j]);
+                printf(COLOR_GREEN "%c " COLOR_RESET, board->cells[i][j]);
                 break;
             case YELLOW:
-                printf(YELLOW("%c "), board->cells[i][j]);
+                printf(COLOR_YELLOW "%c " COLOR_RESET, board->cells[i][j]);
                 break;
             case ORANGE:
-                printf(ORANGE("%c "), board->cells[i][j]);
+                printf(COLOR_ORANGE "%c " COLOR_RESET, board->cells[i][j]);
                 break;
             case RED:
-                printf(RED("%c "), board->cells[i][j]);
+                printf(COLOR_RED "%c " COLOR_RESET, board->cells[i][j]);
                 break;
             case EMPTY:
                 printf("%c ", board->cells[i][j]);
