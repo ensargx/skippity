@@ -84,6 +84,36 @@ void clearLines(int start, int end)
     }
 }
 
+void moveCursorToBottom()
+{
+    printf("\033[100;0H");
+}
+
+void moveCursorToTop()
+{
+    printf("\033[0;0H");
+}
+
+void moveCursorUp(int n)
+{
+    printf("\033[%dA", n);
+}
+
+void moveCursorDown(int n)
+{
+    printf("\033[%dB", n);
+}
+
+void moveCursorRight(int n)
+{
+    printf("\033[%dC", n);
+}
+
+void moveCursorLeft(int n)
+{
+    printf("\033[%dD", n);
+}
+
 /* Check if the move is valid
  *
  * Parameters:
