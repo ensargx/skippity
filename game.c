@@ -4,6 +4,12 @@
 
 #define INVALID_PIECE 0
 
+#define RED(x) "\x1B[31m" x "\x1B[0m"
+#define GREEN(x) "\x1B[32m" x "\x1B[0m"
+#define YELLOW(x) "\x1B[33m" x "\x1B[0m"
+#define BLUE(x) "\x1B[34m" x "\x1B[0m"
+#define ORANGE(x) "\x1B[35m" x "\x1B[0m"
+
 typedef enum _Piece {
     EMPTY = ' ',
     BLUE = 'A',
@@ -44,6 +50,40 @@ typedef struct _Player {
     int pieces[5];
 } Player;
 
+void moveCursor(int x, int y)
+{
+    printf("\033[%d;%dH", x, y);
+}
+
+void printAt(int x, int y, char *text)
+{
+    printf("\033[s");
+    moveCursor(x, y);
+    printf("%s", text);
+    printf("\033[u");
+}
+
+void clearScreen()
+{
+    printf("\033[2J");
+    printf("\033[H");
+}
+
+void clearLine(int line)
+{
+    printf("\033[%d;0H", line);
+    printf("\033[K");
+}
+
+void clearLines(int start, int end)
+{
+    int i;
+    for (i = start; i <= end; i++)
+    {
+        clearLine(i);
+    }
+}
+
 /* Check if the move is valid
  *
  * Parameters:
@@ -57,15 +97,30 @@ typedef struct _Player {
 Piece isMoveValid(Board *board, Move *move)
 {
     int toRight = move->direction == RIGHT ? 1 : move->direction == LEFT ? -1 : 0;
-    int toTop = move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0;
-
-    Piece p = board->cells[move->PieceX + toRight][move->PieceY + toTop];
-    if (p == EMPTY)
+    int toBottom = move->direction == DOWN ? 1 : move->direction == UP ? -1 : 0;
+    Piece c;
+    if (board->size <= move->PieceX + 2 * toBottom || move->PieceX + 2 * toBottom < 0)
     {
         return INVALID_PIECE;
     }
 
-    return p;
+    if (board->size <= move->PieceY + 2 * toRight || move->PieceY + 2 * toRight < 0)
+    {
+        return INVALID_PIECE;
+    }
+
+    c = board->cells[move->PieceX + toBottom][move->PieceY + toRight];
+    if (c == EMPTY)
+    {
+        return INVALID_PIECE;
+    }
+
+    if (board->cells[move->PieceX + 2 * toBottom][move->PieceY + 2 * toRight] != EMPTY)
+    {
+        return INVALID_PIECE;
+    }
+
+    return c;
 }
 
 /* Initialize the board with random pieces */
@@ -151,7 +206,27 @@ void printBoard(Board *board)
     {
         for (j = 0; j < board->size; j++)
         {
-            printf("%c ", board->cells[i][j]);
+            switch (board->cells[i][j])
+            {
+            case BLUE:
+                printf(BLUE("%c "), board->cells[i][j]);
+                break;
+            case GREEN:
+                printf(GREEN("%c "), board->cells[i][j]);
+                break;
+            case YELLOW:
+                printf(YELLOW("%c "), board->cells[i][j]);
+                break;
+            case ORANGE:
+                printf(ORANGE("%c "), board->cells[i][j]);
+                break;
+            case RED:
+                printf(RED("%c "), board->cells[i][j]);
+                break;
+            case EMPTY:
+                printf("%c ", board->cells[i][j]);
+                break;
+            }
         }
         printf("\n");
     }
@@ -182,7 +257,13 @@ int isNextMoveAvailable(Board *board, Move *move)
 {
     printf("1\n");
     /* check if can move right */ 
-    if (board->cells[move->PieceX + 1][move->PieceY] != EMPTY && board->cells[move->PieceX + 2][move->PieceY] == EMPTY)
+    if (
+            board->size > move->PieceX + 2 &&
+            move->PieceX + 2 >= 0 &&
+            board->cells[move->PieceX + 1][move->PieceY] != EMPTY &&
+            board->cells[move->PieceX + 2][move->PieceY] == EMPTY
+        )
+           
     {
         return 1;
     }
@@ -201,7 +282,13 @@ int isNextMoveAvailable(Board *board, Move *move)
 
     printf("3\n");
     /* check if can move up */
-    if (board->cells[move->PieceX][move->PieceY - 1] != EMPTY && board->cells[move->PieceX][move->PieceY - 2] == EMPTY)
+    if (
+            board->size > move->PieceY - 2 &&
+            move->PieceY - 2 >= 0 &&
+            board->cells[move->PieceX][move->PieceY - 1] != EMPTY &&
+            board->cells[move->PieceX][move->PieceY - 2] == EMPTY
+        )
+
     {
         return 1;
     }
@@ -268,9 +355,13 @@ Move *humanMakeMove(Board *board)
             continue;
         }
         movePiece(board, move);
-        move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
-        move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
+        move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
+        move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? 2 : 0);
+
         printBoard(board);
+
+        printf("Piece moved\n");
+        printf("x: %d, y: %d\n", move->PieceX, move->PieceY);
 
         printf("Piece taken: %c\n", c);
 
@@ -281,8 +372,6 @@ Move *humanMakeMove(Board *board)
             Move *nextMove = createMove(move->PieceX, move->PieceY, move->direction);
             move->next = nextMove;
             move = nextMove;
-            move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-            move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? 2 : 0);  
         }
         else 
         {
