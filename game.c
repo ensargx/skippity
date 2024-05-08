@@ -47,6 +47,7 @@ typedef enum _Direction {
 } Direction;
 
 typedef struct _Move {
+    int playerId;
     int PieceX;
     int PieceY;
     Direction direction;
@@ -269,6 +270,7 @@ Move *createMove(int x, int y, Direction direction)
     move->PieceY = y;
     move->direction = direction;
     move->next = NULL;
+    move->playerId = 0;
     return move;
 }
 
@@ -500,7 +502,12 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
     int nextMoveAvailable = 1;
     int score, i;
     printControl(board, COLOR_BLUE "%s" COLOR_RESET " make your move: ", player->name);
-    scanf(" %c %c", &xaxis, &yaxis);
+    scanf(" %c", &xaxis);
+    if (xaxis == 'q')
+    {
+        return NULL;
+    }
+    scanf(" %c", &yaxis);
     if (xaxis > '0' && xaxis < '9')
     {
         x = xaxis - '0' - 1;
@@ -532,22 +539,27 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
     if (isNextMoveAvailable(board, move) == 0)
     {
         printf("Seçeceğin taşın amk git başka taş seç\n");
-        return move;
+        return humanMakeMove(board, player, Opponent);
     }
 
     selected = board->cells[x][y];
-
     firstMove = move;
 
     while (nextMoveAvailable)
     {
         whitePiece(board, move->PieceX, move->PieceY);
         printControl(board, COLOR_BLUE "Direction: " COLOR_RESET);
+
         scanf(" %c", &direction);
+        if (direction == 'x')
+        {
+            return firstMove;
+        }
         if (direction > 'A')
         {
             direction -= 'a' - 'A';
         }
+
         switch (direction)
         {
         case 'W':
@@ -566,6 +578,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
             printf("Invalid direction\n");
             printf("BURAYI İMPLEMENT ET BOZUK BURA\n");
         }
+
         Piece c = isMoveValid(board, move);
         if (c == INVALID_PIECE)
         {
@@ -648,13 +661,32 @@ int main()
     int N;
     int isGameOver = 0;
     int i;
-    Move *move;
+    Move *move, *firstMove;
+    Move *nextMove;
+
+    move = malloc(sizeof(Move));
+    nextMove = malloc(sizeof(Move));
 
     srand(time(NULL));
     setlocale(LC_ALL, "tr_TR.UTF-8");
 
     printf("Enter the board size (n): ");
     scanf("%d", &N);
+    if (N % 2 != 0)
+    {
+        printf("Board size must be an even number\n");
+        return 1;
+    } 
+    if (N > 20)
+    {
+        printf("Board size must be less than 20\n");
+        return 1;
+    }
+    if (N < 4)
+    {
+        printf("Board size must be greater than 4\n");
+        return 1;
+    }
 
     Board *board = initBoard(N);
     if (board == NULL)
@@ -682,21 +714,57 @@ int main()
 
     render(board, player1, player2);
 
+    /* initial move */ 
+    firstMove = playerMakeMove(board, player1, player2);
+    move = firstMove;
+    if (move == NULL)
+    {
+        isGameOver = 1;
+    }
+    if (move)
+    {
+        for (; move->next != NULL; move = move->next)
+        {
+            move->playerId = 122;
+        }
+    }
+    i = 1;
     while (!isGameOver)
     {
-        Move *move;
-        int x, y;
-        Piece p;
+        if (i % 2 == 0)
+        {
+            nextMove = playerMakeMove(board, player1, player2);
+        }
+        else
+        {
+            nextMove = playerMakeMove(board, player2, player1);
+        }
 
-        move = playerMakeMove(board, player1, player2);
+        if (nextMove == NULL)
+        {
+            printf("Game over\n");
+            isGameOver = 1;
+        }
 
-        render(board, player1, player2);
+        if (nextMove)
+        {
+            for (; nextMove->next != NULL; nextMove = nextMove->next)
+            {
+                nextMove->playerId = i % 2 + 1;
+            }
+        }
 
-        move = playerMakeMove(board, player2, player1);
+        move->next = nextMove;
+        move = nextMove;
 
-        render(board, player1, player2);
+        i++;
     }
 
+    moveCursor(20, 0);
+    for (; firstMove != NULL; firstMove = firstMove->next)
+    {
+        printf("Player %d: (%d, %d) %d\n", firstMove->playerId, firstMove->PieceX, firstMove->PieceY, firstMove->direction);
+    }
 
     freeBoard(board);
 
