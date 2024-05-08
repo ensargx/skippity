@@ -171,6 +171,28 @@ void printControl(Board *board, char *format, ...)
     va_end(args);
 }
 
+void printDebug(Board *board, char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    moveCursor(PADDING_TOP + board->size + 2, 0);
+    clearToEnd();
+    printf(COLOR_GREEN "[Debug] " COLOR_RESET);
+    vprintf(format, args);
+    va_end(args);
+}
+
+void printError(Board *board, char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    moveCursor(PADDING_TOP + board->size + 2, 0);
+    clearToEnd();
+    printf(COLOR_RED "[Error] " COLOR_RESET);
+    vprintf(format, args);
+    va_end(args);
+}
+
 /* Check if the move is valid
  *
  * Parameters:
@@ -438,7 +460,6 @@ void movePiece(Board *board, Move *move)
 
 int isNextMoveAvailable(Board *board, Move *move)
 {
-    printf("1\n");
     /* check if can move right */ 
     if (
             board->size > move->PieceX + 2 &&
@@ -451,7 +472,6 @@ int isNextMoveAvailable(Board *board, Move *move)
         return 1;
     }
 
-    printf("2\n");
     /* check if can move left */
     if (
             board->size > move->PieceX - 2 &&
@@ -463,7 +483,6 @@ int isNextMoveAvailable(Board *board, Move *move)
         return 1;
     }
 
-    printf("3\n");
     /* check if can move up */
     if (
             board->size > move->PieceY - 2 &&
@@ -476,7 +495,6 @@ int isNextMoveAvailable(Board *board, Move *move)
         return 1;
     }
 
-    printf("4\n");
     /* check if can move down */ 
     if (
             board->size > move->PieceY + 2 &&
@@ -489,6 +507,41 @@ int isNextMoveAvailable(Board *board, Move *move)
     }
 
     return 0;
+}
+
+Direction getDirection(Board *board)
+{
+    char direction;
+
+    scanf(" %c", &direction);
+    if (direction == 'x')
+    {
+        return -1;
+    }
+    if (direction > 'A')
+    {
+        direction -= 'a' - 'A';
+    }
+
+    switch (direction)
+    {
+    case 'W':
+        return UP;
+        break;
+    case 'S':
+        return DOWN;
+        break;
+    case 'A':
+        return LEFT;
+        break;
+    case 'D':
+        return RIGHT;
+        break;
+    default:
+        printError(board, "Invalid direction\n");
+        return getDirection(board);
+    }
+    return -1;
 }
 
 Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
@@ -538,53 +591,38 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
 
     if (isNextMoveAvailable(board, move) == 0)
     {
-        printf("Seçeceğin taşın amk git başka taş seç\n");
+        printError(board, "No move available\n");
         return humanMakeMove(board, player, Opponent);
     }
 
     selected = board->cells[x][y];
+
     firstMove = move;
 
     while (nextMoveAvailable)
     {
+        int dirValid = 0;
         whitePiece(board, move->PieceX, move->PieceY);
         printControl(board, COLOR_BLUE "Direction: " COLOR_RESET);
 
-        scanf(" %c", &direction);
-        if (direction == 'x')
+        Piece c;
+        while (dirValid == 0)
         {
-            return firstMove;
-        }
-        if (direction > 'A')
-        {
-            direction -= 'a' - 'A';
-        }
-
-        switch (direction)
-        {
-        case 'W':
-            move->direction = UP;
-            break;
-        case 'S':
-            move->direction = DOWN;
-            break;
-        case 'A':
-            move->direction = LEFT;
-            break;
-        case 'D':
-            move->direction = RIGHT;
-            break;
-        default:
-            printf("Invalid direction\n");
-            printf("BURAYI İMPLEMENT ET BOZUK BURA\n");
-        }
-
-        Piece c = isMoveValid(board, move);
-        if (c == INVALID_PIECE)
-        {
-            printf("Invalid move\n");
-            printf("BURAYI İMPLEMENT ET BOZUK BURA\n");
-            continue;
+            Direction dir = getDirection(board);
+            if (dir == -1)
+            {
+                return firstMove;
+            }
+            move->direction = dir;
+            c = isMoveValid(board, move);
+            if (c != INVALID_PIECE)
+            {
+                dirValid = 1;
+            }
+            else
+            {
+                printError(board, "Invalid move\n");
+            }
         }
         player->pieces[c - 'A']++;
 
@@ -615,7 +653,6 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
         nextMoveAvailable = isNextMoveAvailable(board, move);
         if (nextMoveAvailable)
         {
-            printf("Next move available\n");
             Move *nextMove = createMove(move->PieceX, move->PieceY, move->direction);
             move->next = nextMove;
             move = nextMove;
@@ -714,21 +751,7 @@ int main()
 
     render(board, player1, player2);
 
-    /* initial move */ 
-    firstMove = playerMakeMove(board, player1, player2);
-    move = firstMove;
-    if (move == NULL)
-    {
-        isGameOver = 1;
-    }
-    if (move)
-    {
-        for (; move->next != NULL; move = move->next)
-        {
-            move->playerId = 122;
-        }
-    }
-    i = 1;
+    i = 0;
     while (!isGameOver)
     {
         if (i % 2 == 0)
@@ -742,29 +765,15 @@ int main()
 
         if (nextMove == NULL)
         {
-            printf("Game over\n");
             isGameOver = 1;
         }
-
-        if (nextMove)
-        {
-            for (; nextMove->next != NULL; nextMove = nextMove->next)
-            {
-                nextMove->playerId = i % 2 + 1;
-            }
-        }
-
-        move->next = nextMove;
-        move = nextMove;
-
         i++;
+
+        render(board, player1, player2);
     }
 
-    moveCursor(20, 0);
-    for (; firstMove != NULL; firstMove = firstMove->next)
-    {
-        printf("Player %d: (%d, %d) %d\n", firstMove->playerId, firstMove->PieceX, firstMove->PieceY, firstMove->direction);
-    }
+    moveCursor(board->size + 5, 0);
+    printf(COLOR_RED "Game Over\n" COLOR_RESET);
 
     freeBoard(board);
 
