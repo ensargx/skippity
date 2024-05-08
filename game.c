@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <locale.h>
+#include <string.h>
 
 #define INVALID_PIECE 0
 
@@ -12,11 +13,11 @@
 #define COLOR_BLUE "\x1B[34m"
 #define COLOR_ORANGE "\x1B[35m"
 #define COLOR_WHITE "\x1B[37m"
-#define BOLD "\x1B[1m"
-#define UNDERLINE "\x1B[4m"
-#define BLINK "\x1B[5m"
-#define INVERT "\x1B[7m"
-#define HIDDEN "\x1B[8m"
+#define COLOR_BOLD "\x1B[1m"
+#define COLOR_UNDERLINE "\x1B[4m"
+#define COLOR_BLINK "\x1B[5m"
+#define COLOR_INVERT "\x1B[7m"
+#define CURSOR_HIDDEN "\x1B[8m"
 #define RESET "\x1B[0m"
 #define COLOR_RESET "\x1B[0m"
 
@@ -131,6 +132,16 @@ void moveCursorLeft(int n)
     printf("\033[%dD", n);
 }
 
+void clearToEnd()
+{
+    printf("\033[K");
+}
+
+void clearToStart()
+{
+    printf("\033[1K");
+}
+
 void clearInputBuffer()
 {
     char c;
@@ -146,6 +157,17 @@ void hideCursor()
 void showCursor()
 {
     printf("\033[?25h");
+}
+
+void printControl(Board *board, char *format, ...)
+{
+    moveCursor(PADDING_TOP + 4, PADDING_LEFT + 2 * board->size + 5);
+    clearToEnd();
+    va_list args;
+    va_start(args, format);
+    printf(COLOR_RED "[Control] " COLOR_RESET);
+    vprintf(format, args);
+    va_end(args);
 }
 
 /* Check if the move is valid
@@ -296,21 +318,26 @@ void printBoard(Board *board)
     }
 }
 
-void render(Board *board, Player player1, Player player2)
+void whitePiece(Board *board, int x, int y)
+{
+    moveCursor(PADDING_TOP + x + 1, PADDING_LEFT + 2 * (y + 1));
+    printf(COLOR_WHITE "\033[1m%c " COLOR_RESET, board->cells[x][y]);
+}
+
+void renderBoard(Board *board)
 {
     int i, j;
-    clearScreen();
     moveCursor(PADDING_TOP, PADDING_LEFT);
 
     for (int i = 0; i <= board->size; i++)
     {
         if (i < 10)
         {
-            printf(BOLD "%d " RESET, i);
+            printf(COLOR_BOLD "%d " RESET, i);
         }
         else
         {
-            printf(BOLD "%c " RESET, 'A' + i - 10);
+            printf(COLOR_BOLD "%c " RESET, 'A' + i - 10);
         }
     }
 
@@ -319,11 +346,11 @@ void render(Board *board, Player player1, Player player2)
         moveCursor(PADDING_TOP + i, PADDING_LEFT);
         if (i < 10)
         {
-            printf(BOLD "%d " RESET, i);
+            printf(COLOR_BOLD "%d " RESET, i);
         }
         else
         {
-            printf(BOLD "%c " RESET, 'A' + i - 10);
+            printf(COLOR_BOLD "%c " RESET, 'A' + i - 10);
         }
     }
 
@@ -355,6 +382,13 @@ void render(Board *board, Player player1, Player player2)
             }
         }
     }
+}
+
+void render(Board *board, Player *player1, Player *player2)
+{
+    int i, j;
+    clearScreen();
+    renderBoard(board);
 
     moveCursor(PADDING_TOP, PADDING_LEFT + 2 * board->size + 5);
     printf("%-10s| Score |", "Player");
@@ -365,20 +399,18 @@ void render(Board *board, Player player1, Player player2)
     printf(COLOR_RED " E " COLOR_RESET);
 
     moveCursor(PADDING_TOP + 1, PADDING_LEFT + 2 * board->size + 5);
-    printf("%-10s| %5d | ", player1.name, player1.score);
+    printf("%-10s| %5d | ", player1->name, player1->score);
     for (i = 0; i < 5; i++)
     {
-        printf("%-2d ", player1.pieces[i]);
+        printf("%-2d ", player1->pieces[i]);
     }
 
     moveCursor(PADDING_TOP + 2, PADDING_LEFT + 2 * board->size + 5);
-    printf("%-10s| %5d | ", player2.name, player2.score);
+    printf("%-10s| %5d | ", player2->name, player2->score);
     for (i = 0; i < 5; i++)
     {
-        printf("%-2d ", player2.pieces[i]);
+        printf("%-2d ", player2->pieces[i]);
     }
-
-    moveCursor(PADDING_TOP + 2 + board->size, PADDING_LEFT + 2 * board->size + 5);
 }
 
 void movePiece(Board *board, Move *move)
@@ -457,15 +489,17 @@ int isNextMoveAvailable(Board *board, Move *move)
     return 0;
 }
 
-Move *humanMakeMove(Board *board)
+Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
 {
     char xaxis, yaxis;
+    Piece selected;
     int x, y;
     char direction;
     Move *move;
     Move *firstMove;
     int nextMoveAvailable = 1;
-    printf("Enter the piece to move (x, y): ");
+    int score, i;
+    printControl(board, COLOR_BLUE "%s" COLOR_RESET " make your move: ", player->name);
     scanf(" %c %c", &xaxis, &yaxis);
     if (xaxis > '0' && xaxis < '9')
     {
@@ -501,11 +535,14 @@ Move *humanMakeMove(Board *board)
         return move;
     }
 
+    selected = board->cells[x][y];
+
     firstMove = move;
 
     while (nextMoveAvailable)
     {
-        printf("Enter the direction to move (W, A, S, D): ");
+        whitePiece(board, move->PieceX, move->PieceY);
+        printControl(board, COLOR_BLUE "Direction: " COLOR_RESET);
         scanf(" %c", &direction);
         if (direction > 'A')
         {
@@ -536,16 +573,31 @@ Move *humanMakeMove(Board *board)
             printf("BURAYI İMPLEMENT ET BOZUK BURA\n");
             continue;
         }
+        player->pieces[c - 'A']++;
+
+        /* calculate the score, */ 
+        score = 1;
+        for (i = 0; i < 5; i++)
+        {
+            if (player->pieces[i] == 0)
+            {
+                score = 0;
+            }
+        }
+        if (score)
+        {
+            player->score++;
+            for (i = 0; i < 5; i++)
+            {
+                player->pieces[i]--;
+            }
+        }
+
         movePiece(board, move);
         move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
         move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? 2 : 0);
 
-        printBoard(board);
-
-        printf("Piece moved\n");
-        printf("x: %d, y: %d\n", move->PieceX, move->PieceY);
-
-        printf("Piece taken: %c\n", c);
+        renderBoard(board);
 
         nextMoveAvailable = isNextMoveAvailable(board, move);
         if (nextMoveAvailable)
@@ -583,10 +635,10 @@ Move *computerMakeMove(Board *board)
  * Returns:
  * - the move made by the player
 */
-Move *playerMakeMove(Board *board, Player player)
+Move *playerMakeMove(Board *board, Player *player, Player *opponent)
 {
-    if (player.type == HUMAN)
-        return humanMakeMove(board);
+    if (player->type == HUMAN)
+        return humanMakeMove(board, player, opponent);
     else
         return computerMakeMove(board);
 }
@@ -596,6 +648,7 @@ int main()
     int N;
     int isGameOver = 0;
     int i;
+    Move *move;
 
     srand(time(NULL));
     setlocale(LC_ALL, "tr_TR.UTF-8");
@@ -609,19 +662,39 @@ int main()
         return 1;
     }
 
-    Player player1 = {HUMAN, "Ensar", 0, {0, 0, 0, 0, 0}};
-    Player player2 = {HUMAN, "Orcun", 0, {0, 0, 0, 0, 0}};
+    Player *player1 = malloc(sizeof(Player));
+    Player *player2 = malloc(sizeof(Player));
+    strncpy(player1->name, "Ensar", 50);
+    player1->type = HUMAN;
+    player1->score = 0;
+    for (i = 0; i < 5; i++)
+    {
+        player1->pieces[i] = 0;
+    }
+
+    strncpy(player2->name, "Orcun", 50);
+    player2->type = HUMAN;
+    player2->score = 0;
+    for (i = 0; i < 5; i++)
+    {
+        player2->pieces[i] = 0;
+    }
 
     render(board, player1, player2);
 
     while (!isGameOver)
     {
-        printf("p1 move: ");
         Move *move;
         int x, y;
         Piece p;
 
-        move = playerMakeMove(board, player1);
+        move = playerMakeMove(board, player1, player2);
+
+        render(board, player1, player2);
+
+        move = playerMakeMove(board, player2, player1);
+
+        render(board, player1, player2);
     }
 
 
