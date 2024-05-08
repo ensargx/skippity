@@ -444,9 +444,6 @@ void movePiece(Board *board, Move *move)
 
     int toBottom = move->direction == DOWN ? +2 : move->direction == UP ? -2 : 0;
     int toRight = move->direction == RIGHT ? +2 : move->direction == LEFT ? -2 : 0;
-    printf("Direction: %d\n", move->direction);
-
-    printf("Moving piece from (%d, %d) to (%d, %d)\n", move->PieceX, move->PieceY, move->PieceX + toBottom, move->PieceY + toRight);
 
     board->cells[move->PieceX + toBottom][move->PieceY + toRight] = board->cells[move->PieceX][move->PieceY];
     board->cells[move->PieceX][move->PieceY] = EMPTY;
