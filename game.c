@@ -647,7 +647,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
 
         renderBoard(board);
 
-        printf("YOU WANT TO REDO THE MOVE? (Y/N): ");
+        printControl(board, COLOR_GREEN "Move made. Do you want to redo? (Y/N): " COLOR_RESET);
         char redo;
         scanf(" %c", &redo);
         if (redo == 'Y' || redo == 'y')
