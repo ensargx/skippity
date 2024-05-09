@@ -558,7 +558,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
         return NULL;
     }
     scanf(" %c", &yaxis);
-    if (xaxis > '0' && xaxis < '9')
+    if (xaxis > '0' && xaxis <= '9')
     {
         x = xaxis - '0' - 1;
     }
@@ -571,7 +571,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
         x = xaxis - 'a' + 9;
     }
 
-    if (yaxis > '0' && yaxis < '9')
+    if (yaxis > '0' && yaxis <= '9')
     {
         y = yaxis - '0' - 1;
     }
