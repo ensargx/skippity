@@ -647,6 +647,33 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
 
         renderBoard(board);
 
+        printf("YOU WANT TO REDO THE MOVE? (Y/N): ");
+        char redo;
+        scanf(" %c", &redo);
+        if (redo == 'Y' || redo == 'y')
+        {
+            switch (move->direction)
+            {
+            case UP:
+                move->direction = DOWN;
+                break;
+            case DOWN:
+                move->direction = UP;
+                break;
+            case LEFT:
+                move->direction = RIGHT;
+                break;
+            case RIGHT:
+                move->direction = LEFT;
+                break;
+            }
+            movePiece(board, move);
+
+            move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
+            move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
+            board->cells[move->PieceX][move->PieceY] = c;
+        }
+
         nextMoveAvailable = isNextMoveAvailable(board, move);
         if (nextMoveAvailable)
         {
