@@ -541,21 +541,20 @@ Direction getDirection(Board *board)
     return -1;
 }
 
-Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
+int humanMakeMove(Board *board, Player *player, Player *Opponent)
 {
     char xaxis, yaxis;
     Piece selected;
     int x, y;
     char direction;
     Move *move;
-    Move *firstMove;
     int nextMoveAvailable = 1;
     int score, i;
-    printControl(board, COLOR_BLUE "%s" COLOR_RESET " make your move: ", player->name);
+    printControl(board, COLOR_BOLD "%s" COLOR_RESET " make your move: ", player->name);
     scanf(" %c", &xaxis);
     if (xaxis == 'q')
     {
-        return NULL;
+        return 0;
     }
     scanf(" %c", &yaxis);
     if (xaxis > '0' && xaxis <= '9')
@@ -594,8 +593,6 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
 
     selected = board->cells[x][y];
 
-    firstMove = move;
-
     while (nextMoveAvailable)
     {
         int dirValid = 0;
@@ -608,7 +605,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
             Direction dir = getDirection(board);
             if (dir == -1)
             {
-                return firstMove;
+                return 1;
             }
             move->direction = dir;
             c = isMoveValid(board, move);
@@ -648,6 +645,7 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
         renderBoard(board);
 
         printControl(board, COLOR_GREEN "Move made." COLOR_RESET " Do you want to redo? " COLOR_RED"(Y/N): " COLOR_RESET);
+        nextMoveAvailable = isNextMoveAvailable(board, move);
         char redo;
         scanf(" %c", &redo);
         if (redo == 'Y' || redo == 'y')
@@ -668,37 +666,27 @@ Move *humanMakeMove(Board *board, Player *player, Player *Opponent)
                 break;
             }
             movePiece(board, move);
-
             move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
             move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
             board->cells[move->PieceX][move->PieceY] = c;
-        }
-
-        nextMoveAvailable = isNextMoveAvailable(board, move);
-        if (nextMoveAvailable)
-        {
-            Move *nextMove = createMove(move->PieceX, move->PieceY, move->direction);
-            move->next = nextMove;
-            move = nextMove;
-        }
-        else 
-        {
-            move->next = NULL;
-            nextMoveAvailable = 0;
+            move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
+            move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
+            nextMoveAvailable = 1;
+            renderBoard(board);
         }
     }
 
-    return firstMove;
+    return 1;
 }
 
-Move *computerMakeMove(Board *board)
+int computerMakeMove(Board *board, Player *player, Player *opponent)
 {
     Move *move = createMove(0, 0, 0);
     move->PieceX = rand() % board->size;
     move->PieceY = rand() % board->size;
     move->direction = rand() % 4;
 
-    return move;
+    return 1;
 }
 
 /* Make a move for the player
@@ -709,29 +697,40 @@ Move *computerMakeMove(Board *board)
  * Returns:
  * - the move made by the player
 */
-Move *playerMakeMove(Board *board, Player *player, Player *opponent)
+int playerMakeMove(Board *board, Player *player, Player *opponent)
 {
     if (player->type == HUMAN)
         return humanMakeMove(board, player, opponent);
     else
-        return computerMakeMove(board);
+        return computerMakeMove(board, player, opponent);
 }
 
 int main()
 {
     int N;
-    int isGameOver = 0;
+    int gameMode;
+    int isGameRunning = 1;
     int i;
-    Move *move, *firstMove;
-    Move *nextMove;
-
-    move = malloc(sizeof(Move));
-    nextMove = malloc(sizeof(Move));
 
     srand(time(NULL));
     setlocale(LC_ALL, "tr_TR.UTF-8");
 
-    printf("Enter the board size (n): ");
+    char banner[] = 
+">>======================================<<\n"
+"||                                      ||\n"
+"|| ____  _    _             _ _         ||\n"
+"||/ ___|| | _(_)_ __  _ __ (_) |_ _   _ ||\n"
+"||\\___ \\| |/ / | '_ \\| '_ \\| | __| | | |||\n"
+"|| ___) |   <| | |_) | |_) | | |_| |_| |||\n"
+"|||____/|_|\\_\\_| .__/| .__/|_|\\__|\\__, |||\n"
+"||             |_|   |_|          |___/ ||\n"
+"||                            byEnsarGok||\n"
+">>======================================<<\n";
+
+    clearScreen();
+    printf("%s\n", banner);
+
+    printf(COLOR_BOLD "Enter the board size: " COLOR_RESET);
     scanf("%d", &N);
     if (N % 2 != 0)
     {
@@ -752,12 +751,18 @@ int main()
     Board *board = initBoard(N);
     if (board == NULL)
     {
+        printf(COLOR_RED "Board initialization failed\n" COLOR_RESET);
         return 1;
     }
 
+    printf(COLOR_BOLD "1-" COLOR_RESET " 1 Player\n" COLOR_BOLD "2-" COLOR_RESET " 2 Players\n" );
+    printf(COLOR_WHITE "Game Mode: " COLOR_RESET);
+    scanf("%d", &gameMode);
+
     Player *player1 = malloc(sizeof(Player));
     Player *player2 = malloc(sizeof(Player));
-    strncpy(player1->name, "Ensar", 50);
+    printf(COLOR_BOLD "Enter the name of the first player: " COLOR_RESET);
+    scanf("%s", player1->name);
     player1->type = HUMAN;
     player1->score = 0;
     for (i = 0; i < 5; i++)
@@ -765,8 +770,17 @@ int main()
         player1->pieces[i] = 0;
     }
 
-    strncpy(player2->name, "Orcun", 50);
-    player2->type = HUMAN;
+    if (gameMode == 2)
+    {
+        printf(COLOR_BOLD "Enter the name of the second player: " COLOR_RESET);
+        scanf("%s", player2->name);
+        player2->type = HUMAN;
+    }
+    else if (gameMode == 1)
+    {
+        strncpy(player2->name, "Computer", 50);
+        player2->type = COMPUTER;
+    }
     player2->score = 0;
     for (i = 0; i < 5; i++)
     {
@@ -776,20 +790,15 @@ int main()
     render(board, player1, player2);
 
     i = 0;
-    while (!isGameOver)
+    while (isGameRunning)
     {
         if (i % 2 == 0)
         {
-            nextMove = playerMakeMove(board, player1, player2);
+            isGameRunning = playerMakeMove(board, player1, player2);
         }
         else
         {
-            nextMove = playerMakeMove(board, player2, player1);
-        }
-
-        if (nextMove == NULL)
-        {
-            isGameOver = 1;
+            isGameRunning = playerMakeMove(board, player2, player1);
         }
         i++;
 
