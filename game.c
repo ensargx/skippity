@@ -233,7 +233,7 @@ Piece isMoveValid(Board *board, Move *move)
     return c;
 }
 
-void savePlayers(char *filename, Player *player1, Player *player2)
+void savePlayer(char *filename, Player *player)
 {
     FILE *file;
     /* open in append mode */
@@ -243,9 +243,41 @@ void savePlayers(char *filename, Player *player1, Player *player2)
         printf("File not found\n");
         exit(1);
     }
-    fprintf(file, "player1: id: %d, type: %d, name: %s\n", player1->id, player1->type, player1->name);
-    fprintf(file, "player2: id: %d, type: %d, name: %s\n", player2->id, player2->type, player2->name);
+    fprintf(file, "player: id: %d, type: %d, name: %s\n", player->id, player->type, player->name);
     fclose(file);
+}
+
+Player *loadPlayer(char *filename, int playerId)
+{
+    FILE *file;
+    Player *player;
+    char name[50];
+    int id, type;
+    file = fopen(filename , "r");
+    char line[100];
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    player = (Player *)malloc(sizeof(Player));
+
+    while (fgets(line, 100, file) != NULL)
+    {
+        if (sscanf(line, "player: id: %d, type: %d, name: %s", &id, &type, name) == 3)
+        {
+            if (id == playerId)
+            {
+                player->id = id;
+                player->type = type;
+                strncpy(player->name, name, 50);
+                break;
+            }
+        }
+    }
+
+    fclose(file);
+    return player;
 }
 
 Board* loadBoard(char *filename)
@@ -272,6 +304,7 @@ Board* loadBoard(char *filename)
             fscanf(file, "%c", &c);
             board->cells[i][j] = c;
         }
+        fscanf(file, "\n");
     }
     fclose(file);
     return board;
@@ -854,9 +887,8 @@ int main()
         {
             player2->pieces[i] = 0;
         }
-
-        savePlayers(outfile, player1, player2);
-
+        savePlayer(outfile, player1);
+        savePlayer(outfile, player2);
         /* start the game */ 
         i = 0;
     }
@@ -866,10 +898,8 @@ int main()
         printf("Enter the file name: ");
         scanf("%s", outfile);
         board = loadBoard(outfile);
-        player1 = malloc(sizeof(Player));
-        player2 = malloc(sizeof(Player));
-        renderBoard(board); 
-        exit(1);
+        player1 = loadPlayer(outfile, 1);
+        player2 = loadPlayer(outfile, 2);
     }
     else
     {
