@@ -61,6 +61,7 @@ typedef enum _PlayerType {
 
 typedef struct _Player {
     PlayerType type;
+    int id;
     char name[50];
     int score;
     int pieces[5];
@@ -232,6 +233,50 @@ Piece isMoveValid(Board *board, Move *move)
     return c;
 }
 
+void savePlayers(char *filename, Player *player1, Player *player2)
+{
+    FILE *file;
+    /* open in append mode */
+    file = fopen(filename, "a");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    fprintf(file, "player1: id: %d, type: %d, name: %s\n", player1->id, player1->type, player1->name);
+    fprintf(file, "player2: id: %d, type: %d, name: %s\n", player2->id, player2->type, player2->name);
+    fclose(file);
+}
+
+Board* loadBoard(char *filename)
+{
+    FILE *file;
+    Board *board;
+    int i, j;
+    char c;
+    file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    board = (Board *)malloc(sizeof(Board));
+    fscanf(file, "size: %d\n", &board->size);
+    fscanf(file, "board:\n");
+    board->cells = (Piece **)malloc(board->size * sizeof(Piece *));
+    for (i = 0; i < board->size; i++)
+    {
+        board->cells[i] = (Piece *)malloc(board->size * sizeof(Piece));
+        for (j = 0; j < board->size; j++)
+        {
+            fscanf(file, "%c", &c);
+            board->cells[i][j] = c;
+        }
+    }
+    fclose(file);
+    return board;
+}
+
 /* Initialize the board with random pieces */
 Board *initBoard(int N)
 {
@@ -283,6 +328,30 @@ Board *initBoard(int N)
     }
 
     return board;
+}
+
+/* Save the board to a file */ 
+void saveBoard(Board *board, char *filename)
+{
+    FILE *file;
+    int i, j;
+    file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    fprintf(file, "size: %d\n", board->size);
+    fprintf(file, "board:\n");
+    for (i = 0; i < board->size; i++)
+    {
+        for (j = 0; j < board->size; j++)
+        {
+            fprintf(file, "%c", board->cells[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+    fclose(file);
 }
 
 Move *createMove(int x, int y, Direction direction)
@@ -750,6 +819,7 @@ int main()
         } 
 
         board = initBoard(N);
+        saveBoard(board, outfile);
 
         printf(COLOR_BOLD "1-" COLOR_RESET " 1 Player\n" COLOR_BOLD "2-" COLOR_RESET " 2 Players\n" );
         printf(COLOR_WHITE "Game Mode: " COLOR_RESET);
@@ -760,6 +830,7 @@ int main()
         printf(COLOR_BOLD "Enter the name of the first player: " COLOR_RESET);
         scanf("%s", player1->name);
         player1->type = HUMAN;
+        player1->id = 1;
         player1->score = 0;
         for (i = 0; i < 5; i++)
         {
@@ -778,17 +849,27 @@ int main()
             player2->type = COMPUTER;
         }
         player2->score = 0;
+        player2->id = 2;
         for (i = 0; i < 5; i++)
         {
             player2->pieces[i] = 0;
         }
+
+        savePlayers(outfile, player1, player2);
 
         /* start the game */ 
         i = 0;
     }
     else if (i == 2)
     {
-        printf("Loading a game\n");
+        printf("Loading game\n");
+        printf("Enter the file name: ");
+        scanf("%s", outfile);
+        board = loadBoard(outfile);
+        player1 = malloc(sizeof(Player));
+        player2 = malloc(sizeof(Player));
+        renderBoard(board); 
+        exit(1);
     }
     else
     {
