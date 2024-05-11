@@ -280,6 +280,21 @@ Player *loadPlayer(char *filename, int playerId)
     return player;
 }
 
+void saveMove(char *filename, Move move)
+{
+    FILE *file;
+    file = fopen(filename, "a");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    move.PieceX += (move.direction == UP ? +2 : move.direction == DOWN ? -2 : 0);
+    move.PieceY += (move.direction == LEFT ? +2 : move.direction == RIGHT ? -2 : 0);
+    fprintf(file, "move: player: %d, x: %d, y: %d, direction: %d\n", move.playerId, move.PieceX, move.PieceY, move.direction);
+    fclose(file);
+}
+
 Board* loadBoard(char *filename)
 {
     FILE *file;
@@ -408,6 +423,46 @@ void freeBoard(Board *board)
     }
     free(board->cells);
     free(board);
+}
+
+void movePiece(Board *board, Move *move);
+void loadMoves(char *filename, Board *board, Player *player1, Player *player2, int* lastPlayerId)
+{
+    FILE *file;
+    Move *move = createMove(0, 0, 0);
+    char line[100];
+    int x, y, direction, playerId;
+    file = fopen(filename, "r");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    while (fgets(line, 100, file) != NULL)
+    {
+        if (sscanf(line, "move: player: %d, x: %d, y: %d, direction: %d", &playerId, &x, &y, &direction) == 4)
+        {
+            move->PieceX = x;
+            move->PieceY = y;
+            move->direction = direction;
+            move->playerId = playerId;
+            move->next = NULL;
+            Piece c = isMoveValid(board, move);
+            movePiece(board, move);
+
+            /* give point to accourding player */
+            if (player1->id == playerId)
+            {
+                player1->pieces[c - 'A']++;
+            }
+            else if (player2->id == playerId)
+            {
+                player2->pieces[c - 'A']++;
+            }
+            *lastPlayerId = playerId;
+        }
+    }
+    fclose(file);
 }
 
 /* Print the board */
@@ -643,7 +698,7 @@ Direction getDirection(Board *board)
     return -1;
 }
 
-int humanMakeMove(Board *board, Player *player, Player *Opponent)
+int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
 {
     char xaxis, yaxis;
     Piece selected;
@@ -690,7 +745,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent)
     if (isNextMoveAvailable(board, move) == 0)
     {
         printError(board, "No move available\n");
-        return humanMakeMove(board, player, Opponent);
+        return humanMakeMove(board, player, Opponent, outfile);
     }
 
     selected = board->cells[x][y];
@@ -776,12 +831,17 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent)
             nextMoveAvailable = 1;
             renderBoard(board);
         }
+        else 
+        {
+            move->playerId = player->id;
+            saveMove(outfile, *move);
+        }
     }
 
     return 1;
 }
 
-int computerMakeMove(Board *board, Player *player, Player *opponent)
+int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfile)
 {
     Move *move = createMove(0, 0, 0);
     move->PieceX = rand() % board->size;
@@ -799,12 +859,12 @@ int computerMakeMove(Board *board, Player *player, Player *opponent)
  * Returns:
  * - the move made by the player
 */
-int playerMakeMove(Board *board, Player *player, Player *opponent)
+int playerMakeMove(Board *board, Player *player, Player *opponent, char *outfile)
 {
     if (player->type == HUMAN)
-        return humanMakeMove(board, player, opponent);
+        return humanMakeMove(board, player, opponent, outfile);
     else
-        return computerMakeMove(board, player, opponent);
+        return computerMakeMove(board, player, opponent, outfile);
 }
 
 int main()
@@ -900,6 +960,8 @@ int main()
         board = loadBoard(outfile);
         player1 = loadPlayer(outfile, 1);
         player2 = loadPlayer(outfile, 2);
+        /* load moves for the board */
+        loadMoves(outfile, board, player1, player2, &i);
     }
     else
     {
@@ -912,14 +974,13 @@ int main()
     {
         if (i % 2 == 0)
         {
-            isGameRunning = playerMakeMove(board, player1, player2);
+            isGameRunning = playerMakeMove(board, player1, player2, outfile);
         }
         else
         {
-            isGameRunning = playerMakeMove(board, player2, player1);
+            isGameRunning = playerMakeMove(board, player2, player1, outfile);
         }
         i++;
-
         render(board, player1, player2);
     }
 
