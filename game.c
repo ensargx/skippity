@@ -711,6 +711,9 @@ int main()
     int gameMode;
     int isGameRunning = 1;
     int i;
+    char outfile[50];
+    Board *board = NULL;
+    Player *player1, *player2;
 
     srand(time(NULL));
     setlocale(LC_ALL, "tr_TR.UTF-8");
@@ -730,66 +733,70 @@ int main()
     clearScreen();
     printf("%s\n", banner);
 
-    printf(COLOR_BOLD "Enter the board size: " COLOR_RESET);
-    scanf("%d", &N);
-    if (N % 2 != 0)
+    printf("1- Create a new game\n");
+    printf("2- Load a game\n");
+    scanf("%d", &i);
+    if (i == 1)
     {
-        printf("Board size must be an even number\n");
-        return 1;
-    } 
-    if (N > 20)
-    {
-        printf("Board size must be less than 20\n");
-        return 1;
-    }
-    if (N < 4)
-    {
-        printf("Board size must be greater than 4\n");
-        return 1;
-    }
+        printf("Enter the output file name: ");
+        scanf("%s", outfile);
 
-    Board *board = initBoard(N);
-    if (board == NULL)
+        printf(COLOR_BOLD "Enter the board size: " COLOR_RESET);
+        scanf("%d", &N);
+        if (N % 2 != 0 || N > 20 || N < 4)
+        {
+            printf("Invalid board size!\n");
+            return 1;
+        } 
+
+        board = initBoard(N);
+
+        printf(COLOR_BOLD "1-" COLOR_RESET " 1 Player\n" COLOR_BOLD "2-" COLOR_RESET " 2 Players\n" );
+        printf(COLOR_WHITE "Game Mode: " COLOR_RESET);
+        scanf("%d", &gameMode);
+
+        player1 = malloc(sizeof(Player));
+        player2 = malloc(sizeof(Player));
+        printf(COLOR_BOLD "Enter the name of the first player: " COLOR_RESET);
+        scanf("%s", player1->name);
+        player1->type = HUMAN;
+        player1->score = 0;
+        for (i = 0; i < 5; i++)
+        {
+            player1->pieces[i] = 0;
+        }
+
+        if (gameMode == 2)
+        {
+            printf(COLOR_BOLD "Enter the name of the second player: " COLOR_RESET);
+            scanf("%s", player2->name);
+            player2->type = HUMAN;
+        }
+        else if (gameMode == 1)
+        {
+            strncpy(player2->name, "Computer", 50);
+            player2->type = COMPUTER;
+        }
+        player2->score = 0;
+        for (i = 0; i < 5; i++)
+        {
+            player2->pieces[i] = 0;
+        }
+
+        /* start the game */ 
+        i = 0;
+    }
+    else if (i == 2)
     {
-        printf(COLOR_RED "Board initialization failed\n" COLOR_RESET);
+        printf("Loading a game\n");
+    }
+    else
+    {
+        printf("Invalid option\n");
         return 1;
-    }
-
-    printf(COLOR_BOLD "1-" COLOR_RESET " 1 Player\n" COLOR_BOLD "2-" COLOR_RESET " 2 Players\n" );
-    printf(COLOR_WHITE "Game Mode: " COLOR_RESET);
-    scanf("%d", &gameMode);
-
-    Player *player1 = malloc(sizeof(Player));
-    Player *player2 = malloc(sizeof(Player));
-    printf(COLOR_BOLD "Enter the name of the first player: " COLOR_RESET);
-    scanf("%s", player1->name);
-    player1->type = HUMAN;
-    player1->score = 0;
-    for (i = 0; i < 5; i++)
-    {
-        player1->pieces[i] = 0;
-    }
-
-    if (gameMode == 2)
-    {
-        printf(COLOR_BOLD "Enter the name of the second player: " COLOR_RESET);
-        scanf("%s", player2->name);
-        player2->type = HUMAN;
-    }
-    else if (gameMode == 1)
-    {
-        strncpy(player2->name, "Computer", 50);
-        player2->type = COMPUTER;
-    }
-    player2->score = 0;
-    for (i = 0; i < 5; i++)
-    {
-        player2->pieces[i] = 0;
     }
 
     render(board, player1, player2);
-
-    i = 0;
     while (isGameRunning)
     {
         if (i % 2 == 0)
@@ -809,6 +816,8 @@ int main()
     printf(COLOR_RED "Game Over\n" COLOR_RESET);
 
     freeBoard(board);
+    free(player1);
+    free(player2);
 
     return 0;
 }
