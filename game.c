@@ -251,7 +251,7 @@ Player *loadPlayer(char *filename, int playerId)
 {
     FILE *file;
     Player *player;
-    char name[50];
+    char name[100];
     int id, type;
     file = fopen(filename , "r");
     char line[100];
@@ -280,7 +280,20 @@ Player *loadPlayer(char *filename, int playerId)
     return player;
 }
 
-void saveMove(char *filename, Move move)
+void saveMoveBot(char *filename, Move move)
+{
+    FILE *file;
+    file = fopen(filename, "a");
+    if (file == NULL)
+    {
+        printf("File not found\n");
+        exit(1);
+    }
+    fprintf(file, "move: player: %d, x: %d, y: %d, direction: %d\n", move.playerId, move.PieceX, move.PieceY, move.direction);
+    fclose(file);
+}
+
+void saveMoveHuman(char *filename, Move move)
 {
     FILE *file;
     file = fopen(filename, "a");
@@ -290,7 +303,7 @@ void saveMove(char *filename, Move move)
         exit(1);
     }
     move.PieceX += (move.direction == UP ? +2 : move.direction == DOWN ? -2 : 0);
-    move.PieceY += (move.direction == LEFT ? +2 : move.direction == RIGHT ? -2 : 0);
+    move.PieceY += (move.direction == LEFT ? -2 : move.direction == RIGHT ? +2 : 0);
     fprintf(file, "move: player: %d, x: %d, y: %d, direction: %d\n", move.playerId, move.PieceX, move.PieceY, move.direction);
     fclose(file);
 }
@@ -425,6 +438,7 @@ void freeBoard(Board *board)
     free(board);
 }
 
+void renderBoard(Board *board);
 void movePiece(Board *board, Move *move);
 void loadMoves(char *filename, Board *board, Player *player1, Player *player2, int* lastPlayerId)
 {
@@ -449,7 +463,12 @@ void loadMoves(char *filename, Board *board, Player *player1, Player *player2, i
             move->next = NULL;
             Piece c = isMoveValid(board, move);
             movePiece(board, move);
-
+            if (c != INVALID_PIECE)
+            {
+                renderBoard(board);
+                printError(board, "Invalid move, x: %d, y: %d, direction: %d\n", x, y, direction);
+                exit(1);
+            }
             /* give point to accourding player */
             if (player1->id == playerId)
             {
@@ -621,7 +640,6 @@ int isNextMoveAvailable(Board *board, Move *move)
             board->cells[move->PieceX + 1][move->PieceY] != EMPTY &&
             board->cells[move->PieceX + 2][move->PieceY] == EMPTY
         )
-           
     {
         return 1;
     }
@@ -742,9 +760,24 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
 
     move = createMove(x, y, 0);
 
+    if (x < 0 || x >= board->size || y < 0 || y >= board->size)
+    {
+        printError(board, "Invalid move\n");
+        free(move);
+        return humanMakeMove(board, player, Opponent, outfile);
+    }
+
+    if (board->cells[x][y] == EMPTY)
+    {
+        printError(board, "Empty cell\n");
+        free(move);
+        return humanMakeMove(board, player, Opponent, outfile);
+    }
+
     if (isNextMoveAvailable(board, move) == 0)
     {
         printError(board, "No move available\n");
+        free(move);
         return humanMakeMove(board, player, Opponent, outfile);
     }
 
@@ -797,8 +830,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
 
         movePiece(board, move);
         move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-        move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? 2 : 0);
-
+        move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0); 
         renderBoard(board);
 
         printControl(board, COLOR_GREEN "Move made." COLOR_RESET " Do you want to redo? " COLOR_RED"(Y/N): " COLOR_RESET);
@@ -834,102 +866,96 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
         else 
         {
             move->playerId = player->id;
-            saveMove(outfile, *move);
+            saveMoveHuman(outfile, *move);
         }
     }
 
+    free(move);
     return 1;
 }
 
-int getMaxScore(int x, int y, int matrix[x][y], int posX, int posY, Direction* direction)
+int calculateBestScore(int N, int **matrix, int posY, int posX, Direction *direction)
 {
-    int i, j;
+    int tmpScore;
+    int score = 0;
+    Direction tmp_direction = 0;
     int maxScore = 0;
+    char dummy;
 
     /* check if can move up */
     if (
-            x > posX - 2 &&
-            posX - 2 >= 0 &&
-            matrix[posX - 1][posY] != 0 &&
-            matrix[posX - 2][posY] == 0
-        )
+        posX - 2 >= 0 &&
+        matrix[posX - 2][posY] == 0 &&
+        matrix[posX - 1][posY] != 0
+    )
     {
-        /* check if moving up is a good move */
-        /* pretend moved up */
-        int score = matrix[posX - 1][posY];
+        /* simulate move */
+        tmpScore = matrix[posX - 1][posY];
+        matrix[posX - 2][posY] = matrix[posX][posY];
+        matrix[posX][posY] = 0;
         matrix[posX - 1][posY] = 0;
-        posX -= 2;
-        score += getMaxScore(x, y, matrix, posX, posY, direction);
+        tmp_direction = UP;
+        score = tmpScore + calculateBestScore(N, matrix, posY, posX - 2, &tmp_direction);
         if (score > maxScore)
         {
             maxScore = score;
             *direction = UP;
         }
+        /* undo move */
+        matrix[posX][posY] = matrix[posX - 2][posY];
+        matrix[posX - 2][posY] = 0;
+        matrix[posX - 1][posY] = tmpScore;
     }
 
     /* check if can move down */
     if (
-            x > posX + 2 &&
-            posX + 2 >= 0 &&
-            matrix[posX + 1][posY] != 0 &&
-            matrix[posX + 2][posY] == 0
-        )
+        posX + 2 < N &&
+        matrix[posX + 2][posY] == 0 &&
+        matrix[posX + 1][posY] != 0
+    )
     {
-        /* check if moving down is a good move */
-        /* pretend moved down */
-        int score = matrix[posX + 1][posY];
+        /* simulate move */
+        tmpScore = matrix[posX + 1][posY];
+        matrix[posX + 2][posY] = matrix[posX][posY];
+        matrix[posX][posY] = 0;
         matrix[posX + 1][posY] = 0;
-        posX += 2;
-        score += getMaxScore(x, y, matrix, posX, posY, direction);
+        tmp_direction = DOWN;
+        score = tmpScore + calculateBestScore(N, matrix, posY, posX + 2, &tmp_direction);
         if (score > maxScore)
         {
             maxScore = score;
             *direction = DOWN;
         }
+        /* undo move */
+        matrix[posX][posY] = matrix[posX + 2][posY];
+        matrix[posX + 2][posY] = 0;
+        matrix[posX + 1][posY] = tmpScore;
     }
 
     /* check if can move left */
     if (
-            y > posY - 2 &&
-            posY - 2 >= 0 &&
-            matrix[posX][posY - 1] != 0 &&
-            matrix[posX][posY - 2] == 0
-        )
+        posY - 2 >= 0 &&
+        matrix[posX][posY - 2] == 0 &&
+        matrix[posX][posY - 1] != 0
+    )
     {
-        /* check if moving left is a good move */
-        /* pretend moved left */
-        int score = matrix[posX][posY - 1];
+        /* simulate move */
+        tmpScore = matrix[posX][posY - 1];
+        matrix[posX][posY - 2] = matrix[posX][posY];
+        matrix[posX][posY] = 0;
         matrix[posX][posY - 1] = 0;
-        posY -= 2;
-        score += getMaxScore(x, y, matrix, posX, posY, direction);
+        tmp_direction = LEFT;
+        score = tmpScore + calculateBestScore(N, matrix, posY - 2, posX, &tmp_direction);
         if (score > maxScore)
         {
             maxScore = score;
             *direction = LEFT;
         }
+        /* undo move */
+        matrix[posX][posY] = matrix[posX][posY - 2];
+        matrix[posX][posY - 2] = 0;
+        matrix[posX][posY - 1] = tmpScore;
     }
-
-    /* check if can move right */
-    if (
-            y > posY + 2 &&
-            posY + 2 >= 0 &&
-            matrix[posX][posY + 1] != 0 &&
-            matrix[posX][posY + 2] == 0
-        )
-    {
-        /* check if moving right is a good move */
-        /* pretend moved right */
-        int score = matrix[posX][posY + 1];
-        matrix[posX][posY + 1] = 0;
-        posY += 2;
-        score += getMaxScore(x, y, matrix, posX, posY, direction);
-        if (score > maxScore)
-        {
-            maxScore = score;
-            *direction = RIGHT;
-        }
-    }
-
     return maxScore;
 }
 
@@ -946,6 +972,7 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
     int x, y;
     int maxScore = 0;
     int canMakeMove = 1;
+    int score;
 
     int **matrix = (int **)malloc(board->size * sizeof(int *));
     for (i = 0; i < board->size; i++)
@@ -985,21 +1012,11 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
         }
     }
 
-    moveCursor(PADDING_TOP + board->size + 2, 0);
-    /* dbg: print the matrix */
-    for (i = 0; i < board->size; i++)
-    {
-        for (j = 0; j < board->size; j++)
-        {
-            printf("%d ", matrix[i][j]);
-        }
-        printf("\n");
-    }
-
     /* Find the best move */
     int bestX = 0;
     int bestY = 0;
     Direction bestDirection = UP;
+    Direction direction;
     for (i = 0; i < board->size; i++)
     {
         for (j = 0; j < board->size; j++)
@@ -1011,46 +1028,47 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
             /* if can move piece, calculate the max score */
             if (matrix[i][j] != 0 && isNextMoveAvailable(board, &dummy))
             {
-                int oldP = matrix[i][j];
-                int score = matrix[i][j];
-                matrix[i][j] = 0;
-                score += getMaxScore(board->size, board->size, matrix, i, j, &bestDirection);
+                score = calculateBestScore(board->size, matrix, j, i, &direction);
                 if (score > maxScore)
                 {
-                    // printf("Score: %d\n", score);
-                    // printf("x: %d, y: %d\n", i, j);
                     maxScore = score;
                     bestX = i;
                     bestY = j;
+                    bestDirection = direction;
                 }
-                matrix[i][j] = oldP;
             }
         }
     }
 
-    /* Make the move */
+    /* make the move */
     Move *move = createMove(bestX, bestY, bestDirection);
-    move->playerId = player->id;
-    saveMove(outfile, *move);
-    movePiece(board, move);
-    char direction;
-    switch (bestDirection)
+    if (maxScore == 0)
     {
-    case UP:
-        direction = 'W';
-        break;
-    case DOWN:
-        direction = 'S';
-        break;
-    case LEFT:
-        direction = 'A';
-        break;
-    case RIGHT:
-        direction = 'D';
-        break;
+        printError(board, "Computer cannot make a move\nGame Over!\n");
+        return 0;
     }
-    printDebug(board, "Computer: x: %d, y: %d, direction: %c\n", bestX, bestY, direction);
-    scanf(" %c", &direction);
+    Piece c = isMoveValid(board, move);
+    move->playerId = player->id;
+    if (c == INVALID_PIECE)
+    {
+        /* bot give up */
+        printError(board, "Computer cannot make a move\nGame Over!\n");
+        return 0;
+    }
+
+    player->pieces[c - 'A']++;
+    movePiece(board, move);
+
+    saveMoveBot(outfile, *move);
+
+    /* free */
+    for (i = 0; i < board->size; i++)
+    {
+        free(matrix[i]);
+    }
+    free(matrix);
+    free(move);
+    return 1;
 }
 
 /* Make a move for the player
