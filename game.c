@@ -280,7 +280,7 @@ Player *loadPlayer(char *filename, int playerId)
     return player;
 }
 
-void saveMoveBot(char *filename, Move move)
+void saveMove(char *filename, Move move)
 {
     FILE *file;
     file = fopen(filename, "a");
@@ -289,21 +289,6 @@ void saveMoveBot(char *filename, Move move)
         printf("File not found\n");
         exit(1);
     }
-    fprintf(file, "move: player: %d, x: %d, y: %d, direction: %d\n", move.playerId, move.PieceX, move.PieceY, move.direction);
-    fclose(file);
-}
-
-void saveMoveHuman(char *filename, Move move)
-{
-    FILE *file;
-    file = fopen(filename, "a");
-    if (file == NULL)
-    {
-        printf("File not found\n");
-        exit(1);
-    }
-    move.PieceX += (move.direction == UP ? +2 : move.direction == DOWN ? -2 : 0);
-    move.PieceY += (move.direction == LEFT ? -2 : move.direction == RIGHT ? +2 : 0);
     fprintf(file, "move: player: %d, x: %d, y: %d, direction: %d\n", move.playerId, move.PieceX, move.PieceY, move.direction);
     fclose(file);
 }
@@ -463,7 +448,7 @@ void loadMoves(char *filename, Board *board, Player *player1, Player *player2, i
             move->next = NULL;
             Piece c = isMoveValid(board, move);
             movePiece(board, move);
-            if (c != INVALID_PIECE)
+            if (c == INVALID_PIECE)
             {
                 renderBoard(board);
                 printError(board, "Invalid move, x: %d, y: %d, direction: %d\n", x, y, direction);
@@ -529,7 +514,7 @@ void renderBoard(Board *board)
     int i, j;
     moveCursor(PADDING_TOP, PADDING_LEFT);
 
-    for (int i = 0; i <= board->size; i++)
+    for (i = 0; i <= board->size; i++)
     {
         if (i < 10)
         {
@@ -781,7 +766,14 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
         return humanMakeMove(board, player, Opponent, outfile);
     }
 
-    selected = board->cells[x][y];
+    whitePiece(board, move->PieceX, move->PieceY);
+    printControl(board, COLOR_GREEN "Piece selected." COLOR_RESET " Do you want to redo? " COLOR_RED"(Y/N): " COLOR_RESET);
+    char redo;
+    scanf(" %c", &redo);
+    if (redo == 'Y' || redo == 'y')
+    {
+        return humanMakeMove(board, player, Opponent, outfile);
+    }
 
     while (nextMoveAvailable)
     {
@@ -829,45 +821,12 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
         }
 
         movePiece(board, move);
+        renderBoard(board);
+        move->playerId = player->id;
+        saveMove(outfile, *move);
         move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
         move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0); 
-        renderBoard(board);
-
-        printControl(board, COLOR_GREEN "Move made." COLOR_RESET " Do you want to redo? " COLOR_RED"(Y/N): " COLOR_RESET);
         nextMoveAvailable = isNextMoveAvailable(board, move);
-        char redo;
-        scanf(" %c", &redo);
-        if (redo == 'Y' || redo == 'y')
-        {
-            switch (move->direction)
-            {
-            case UP:
-                move->direction = DOWN;
-                break;
-            case DOWN:
-                move->direction = UP;
-                break;
-            case LEFT:
-                move->direction = RIGHT;
-                break;
-            case RIGHT:
-                move->direction = LEFT;
-                break;
-            }
-            movePiece(board, move);
-            move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
-            move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
-            board->cells[move->PieceX][move->PieceY] = c;
-            move->PieceX += (move->direction == UP ? -1 : move->direction == DOWN ? 1 : 0);
-            move->PieceY += (move->direction == LEFT ? -1 : move->direction == RIGHT ? 1 : 0);
-            nextMoveAvailable = 1;
-            renderBoard(board);
-        }
-        else 
-        {
-            move->playerId = player->id;
-            saveMoveHuman(outfile, *move);
-        }
     }
 
     free(move);
@@ -1059,7 +1018,7 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
     player->pieces[c - 'A']++;
     movePiece(board, move);
 
-    saveMoveBot(outfile, *move);
+    saveMove(outfile, *move);
 
     /* free */
     for (i = 0; i < board->size; i++)
@@ -1085,6 +1044,26 @@ int playerMakeMove(Board *board, Player *player, Player *opponent, char *outfile
         return humanMakeMove(board, player, opponent, outfile);
     else
         return computerMakeMove(board, player, opponent, outfile);
+}
+
+void GameLoop(Board *board, Player *player1, Player *player2)
+{
+    int isGameRunning = 1;
+    int i = 0;
+    render(board, player1, player2);
+    while (isGameRunning)
+    {
+        if (i % 2 == 0)
+        {
+            isGameRunning = playerMakeMove(board, player1, player2, "game.txt");
+        }
+        else
+        {
+            isGameRunning = playerMakeMove(board, player2, player1, "game.txt");
+        }
+        i++;
+        render(board, player1, player2);
+    }
 }
 
 int main()
@@ -1189,20 +1168,7 @@ int main()
         return 1;
     }
 
-    render(board, player1, player2);
-    while (isGameRunning)
-    {
-        if (i % 2 == 0)
-        {
-            isGameRunning = playerMakeMove(board, player1, player2, outfile);
-        }
-        else
-        {
-            isGameRunning = playerMakeMove(board, player2, player1, outfile);
-        }
-        i++;
-        render(board, player1, player2);
-    }
+    GameLoop(board, player1, player2);
 
     moveCursor(board->size + 5, 0);
     printf(COLOR_RED "Game Over\n" COLOR_RESET);
