@@ -1,3 +1,11 @@
+/* Yazar: Ensar Gök
+ * Github: https://github.com/ensargx/skippity/ 
+ * Youtube: https://youtu.be/khZaJd6rALY 
+ * 
+ * Yapısal Programlama Dersi Proje Ödevi
+ * compile: gcc -ansi game.c
+*/ 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
