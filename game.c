@@ -1046,7 +1046,7 @@ int playerMakeMove(Board *board, Player *player, Player *opponent, char *outfile
         return computerMakeMove(board, player, opponent, outfile);
 }
 
-void GameLoop(Board *board, Player *player1, Player *player2)
+void GameLoop(Board *board, Player *player1, Player *player2, char *outfile)
 {
     int isGameRunning = 1;
     int i = 0;
@@ -1055,11 +1055,11 @@ void GameLoop(Board *board, Player *player1, Player *player2)
     {
         if (i % 2 == 0)
         {
-            isGameRunning = playerMakeMove(board, player1, player2, "game.txt");
+            isGameRunning = playerMakeMove(board, player1, player2, outfile);
         }
         else
         {
-            isGameRunning = playerMakeMove(board, player2, player1, "game.txt");
+            isGameRunning = playerMakeMove(board, player2, player1, outfile);
         }
         i++;
         render(board, player1, player2);
@@ -1168,7 +1168,7 @@ int main()
         return 1;
     }
 
-    GameLoop(board, player1, player2);
+    GameLoop(board, player1, player2, outfile);
 
     moveCursor(board->size + 5, 0);
     printf(COLOR_RED "Game Over\n" COLOR_RESET);
