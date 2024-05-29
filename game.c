@@ -431,6 +431,32 @@ void freeBoard(Board *board)
     free(board);
 }
 
+void loadScores(Player *p1)
+{
+    int scoreAvail = 1;
+    int i;
+    while (scoreAvail)
+    {
+        for (i = 0; i < 5; i++)
+        {
+            if (p1->pieces[i] == 0)
+            {
+                scoreAvail = 0;
+            }
+        }
+
+        if (scoreAvail)
+        {
+            p1->score++;
+            for (i = 0; i < 5; i++)
+            {
+                p1->pieces[i]--;
+            }
+        }
+    }
+
+}
+
 void renderBoard(Board *board);
 void movePiece(Board *board, Move *move);
 void loadMoves(char *filename, Board *board, Player *player1, Player *player2, int* lastPlayerId)
@@ -445,6 +471,7 @@ void loadMoves(char *filename, Board *board, Player *player1, Player *player2, i
         printf("File not found\n");
         exit(1);
     }
+    *lastPlayerId = 1;
     while (fgets(line, 100, file) != NULL)
     {
         if (sscanf(line, "move: player: %d, x: %d, y: %d, direction: %d", &playerId, &x, &y, &direction) == 4)
@@ -709,6 +736,20 @@ Direction getDirection(Board *board)
     return -1;
 }
 
+void undoMove(Board *board, Move *move, Piece taken)
+{
+    int toBottom = move->direction == DOWN ? +2 : move->direction == UP ? -2 : 0;
+    int toRight = move->direction == RIGHT ? +2 : move->direction == LEFT ? -2 : 0;
+
+    board->cells[move->PieceX][move->PieceY] = board->cells[move->PieceX + toBottom][move->PieceY + toRight];
+    board->cells[move->PieceX + toBottom][move->PieceY + toRight] = EMPTY;
+
+    toRight /= 2;
+    toBottom /= 2;
+
+    board->cells[move->PieceX + toBottom][move->PieceY + toRight] = taken;
+}
+
 int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
 {
     char xaxis, yaxis;
@@ -717,7 +758,32 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
     char direction;
     Move *move;
     int nextMoveAvailable = 1;
-    int score, i;
+    int score, i, j;
+    int redoAvailable = 1;
+    int moveAvailable = 0;
+
+    /* check if any move available */ 
+    Move *dummy = createMove(0, 0, 0);
+    for (i = 0; i < board->size; i++)
+    {
+        for (j = 0; j < board->size; j++)
+        {
+            dummy->PieceX = i;
+            dummy->PieceY = j;
+            if (isMoveValid(board, dummy) != INVALID_PIECE)
+            {
+                moveAvailable = 1;
+            }
+        }
+    }
+    free(dummy);
+    if (moveAvailable == 0)
+    {
+        printError(board, "No move available\n");
+        return 0;
+    }
+
+    /* get coordinates */ 
     printControl(board, COLOR_BOLD "%s" COLOR_RESET " make your move: ", player->name);
     scanf(" %c", &xaxis);
     if (xaxis == 'q')
@@ -775,21 +841,14 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
     }
 
     whitePiece(board, move->PieceX, move->PieceY);
-    printControl(board, COLOR_GREEN "Piece selected." COLOR_RESET " Do you want to redo? " COLOR_RED"(Y/N): " COLOR_RESET);
-    char redo;
-    scanf(" %c", &redo);
-    if (redo == 'Y' || redo == 'y')
-    {
-        return humanMakeMove(board, player, Opponent, outfile);
-    }
 
     while (nextMoveAvailable)
     {
         int dirValid = 0;
+        Piece c;
         whitePiece(board, move->PieceX, move->PieceY);
         printControl(board, COLOR_BLUE "Direction: " COLOR_RESET);
 
-        Piece c;
         while (dirValid == 0)
         {
             Direction dir = getDirection(board);
@@ -831,10 +890,75 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
         movePiece(board, move);
         renderBoard(board);
         move->playerId = player->id;
-        saveMove(outfile, *move);
-        move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-        move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0); 
-        nextMoveAvailable = isNextMoveAvailable(board, move);
+        /* ask if redo */ 
+        if (redoAvailable)
+        {
+            printControl(board, "Do you want to undo? " COLOR_RED "(y/n)" COLOR_RESET ": ");
+            char redo;
+            scanf(" %c", &redo);
+            if (redo == 'y' || redo == 'Y')
+            {
+                redoAvailable = 0;
+                /* undo the move */ 
+                undoMove(board, move, c);
+                renderBoard(board);
+                
+                /* undo the score */
+                if (score)
+                {
+                    player->score--;
+                    for (i = 0; i < 5; i++)
+                    {
+                        player->pieces[i]++;
+                    }
+                }
+                player->pieces[c - 'A']--;
+
+                dirValid = 0;
+                whitePiece(board, move->PieceX, move->PieceY);
+                while (dirValid == 0)
+                {
+                    Direction dir = getDirection(board);
+                    if (dir == -1)
+                    {
+                        return 1;
+                    }
+                    move->direction = dir;
+                    c = isMoveValid(board, move);
+                    if (c != INVALID_PIECE)
+                    {
+                        dirValid = 1;
+                    }
+                    else
+                    {
+                        printError(board, "Invalid move\n");
+                    }
+                }
+
+                player->pieces[c - 'A']++;
+                movePiece(board, move);
+                renderBoard(board);
+                move->playerId = player->id;
+                saveMove(outfile, *move);
+                move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
+                move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
+                nextMoveAvailable = isNextMoveAvailable(board, move);
+            }
+            else 
+            {
+                saveMove(outfile, *move);
+                move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
+                move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
+                nextMoveAvailable = isNextMoveAvailable(board, move);
+            }
+        }
+        else 
+        {
+            saveMove(outfile, *move);
+            move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
+            move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
+            nextMoveAvailable = isNextMoveAvailable(board, move);
+        }
     }
 
     free(move);
@@ -1054,22 +1178,36 @@ int playerMakeMove(Board *board, Player *player, Player *opponent, char *outfile
         return computerMakeMove(board, player, opponent, outfile);
 }
 
-void GameLoop(Board *board, Player *player1, Player *player2, char *outfile)
+void GameLoop(Board *board, Player *player1, Player *player2, char *outfile, int idx)
 {
     int isGameRunning = 1;
     int i = 0;
+    Player* currentPlayer;
+    Player* nextPlayer;
+    Player* tmp;
+
+    if (idx == 1)
+    {
+        currentPlayer = player1;
+        nextPlayer = player2;
+    }
+    else
+    {
+        currentPlayer = player2;
+        nextPlayer = player1;
+    }
+
     render(board, player1, player2);
     while (isGameRunning)
     {
-        if (i % 2 == 0)
+        if (playerMakeMove(board, currentPlayer, nextPlayer, outfile) == 0)
         {
-            isGameRunning = playerMakeMove(board, player1, player2, outfile);
+            isGameRunning = 0;
         }
-        else
-        {
-            isGameRunning = playerMakeMove(board, player2, player1, outfile);
-        }
-        i++;
+        tmp = currentPlayer;
+        currentPlayer = nextPlayer;
+        nextPlayer = tmp;
+
         render(board, player1, player2);
     }
 }
@@ -1157,7 +1295,7 @@ int main()
         savePlayer(outfile, player1);
         savePlayer(outfile, player2);
         /* start the game */ 
-        i = 0;
+        i = 1;
     }
     else if (i == 2)
     {
@@ -1169,6 +1307,9 @@ int main()
         player2 = loadPlayer(outfile, 2);
         /* load moves for the board */
         loadMoves(outfile, board, player1, player2, &i);
+        /* calculate the score */ 
+        loadScores(player1);
+        loadScores(player2); 
     }
     else
     {
@@ -1176,10 +1317,24 @@ int main()
         return 1;
     }
 
-    GameLoop(board, player1, player2, outfile);
+    GameLoop(board, player1, player2, outfile, i);
 
     moveCursor(board->size + 5, 0);
     printf(COLOR_RED "Game Over\n" COLOR_RESET);
+    
+    /* print the winner */ 
+    if (player1->score > player2->score)
+    {
+        printf(COLOR_BOLD "%s" COLOR_RESET " wins\n", player1->name);
+    }
+    else if (player1->score < player2->score)
+    {
+        printf(COLOR_BOLD "%s" COLOR_RESET " wins\n", player2->name);
+    }
+    else
+    {
+        printf("Draw\n");
+    }
 
     freeBoard(board);
     free(player1);
