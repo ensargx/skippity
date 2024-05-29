@@ -471,6 +471,7 @@ void loadMoves(char *filename, Board *board, Player *player1, Player *player2, i
         printf("File not found\n");
         exit(1);
     }
+    int lastId = 2;
     *lastPlayerId = 1;
     while (fgets(line, 100, file) != NULL)
     {
@@ -498,9 +499,13 @@ void loadMoves(char *filename, Board *board, Player *player1, Player *player2, i
             {
                 player2->pieces[c - 'A']++;
             }
-            *lastPlayerId = playerId;
+            lastId = playerId;
         }
     }
+    if (lastId == 2)
+        *lastPlayerId = 1;
+    else
+        *lastPlayerId = 2;
     fclose(file);
 }
 
@@ -757,6 +762,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
     int x, y;
     char direction;
     Move *move;
+    Move last;
     int nextMoveAvailable = 1;
     int score, i, j;
     int redoAvailable = 1;
@@ -857,6 +863,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
                 return 1;
             }
             move->direction = dir;
+            last = *move;
             c = isMoveValid(board, move);
             if (c != INVALID_PIECE)
             {
@@ -914,51 +921,49 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
                 }
                 player->pieces[c - 'A']--;
 
-                dirValid = 0;
-                whitePiece(board, move->PieceX, move->PieceY);
-                while (dirValid == 0)
-                {
-                    Direction dir = getDirection(board);
-                    if (dir == -1)
-                    {
-                        return 1;
-                    }
-                    move->direction = dir;
-                    c = isMoveValid(board, move);
-                    if (c != INVALID_PIECE)
-                    {
-                        dirValid = 1;
-                    }
-                    else
-                    {
-                        printError(board, "Invalid move\n");
-                    }
-                }
 
-                player->pieces[c - 'A']++;
-                movePiece(board, move);
-                renderBoard(board);
-                move->playerId = player->id;
-                saveMove(outfile, *move);
-                move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-                move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
-                nextMoveAvailable = isNextMoveAvailable(board, move);
-            }
-            else 
-            {
-                saveMove(outfile, *move);
-                move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-                move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
-                nextMoveAvailable = isNextMoveAvailable(board, move);
+                printControl(board, "Redo move? " COLOR_RED "(y/n)" COLOR_RESET ": ");
+                char redo;
+                scanf(" %c", &redo);
+                if (redo == 'y' || redo =='Y')
+                {
+                    /* redo the mov, do the first move again */
+                    movePiece(board, &last);
+                }
+                else
+                {
+                    dirValid = 0;
+                    whitePiece(board, move->PieceX, move->PieceY);
+                    while (dirValid == 0)
+                    {
+                        Direction dir = getDirection(board);
+                        if (dir == -1)
+                        {
+                            return 1;
+                        }
+                        move->direction = dir;
+                        c = isMoveValid(board, move);
+                        if (c != INVALID_PIECE)
+                        {
+                            dirValid = 1;
+                        }
+                        else
+                        {
+                            printError(board, "Invalid move\n");
+                        }
+                    }
+
+                    player->pieces[c - 'A']++;
+                    movePiece(board, move);
+                    renderBoard(board);
+                    move->playerId = player->id;
+                }
             }
         }
-        else 
-        {
-            saveMove(outfile, *move);
-            move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
-            move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
-            nextMoveAvailable = isNextMoveAvailable(board, move);
-        }
+        saveMove(outfile, *move);
+        move->PieceX += (move->direction == UP ? -2 : move->direction == DOWN ? 2 : 0);
+        move->PieceY += (move->direction == LEFT ? -2 : move->direction == RIGHT ? +2 : 0);
+        nextMoveAvailable = isNextMoveAvailable(board, move);
     }
 
     free(move);
