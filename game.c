@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define INVALID_PIECE 0
+#define NO_DIRECTION -1
 
 #define COLOR_RED "\x1B[31m"
 #define COLOR_GREEN "\x1B[32m"
@@ -373,7 +374,8 @@ Board *initBoard(int N)
     int i, j, random;
     Piece p;
     Board *board;
-    if (N % 2 != 0) {
+    if (N % 2 != 0)
+    {
         printf("Board size must be an even number\n");
         return NULL;
     }
@@ -394,24 +396,7 @@ Board *initBoard(int N)
             else 
             {
                 random = rand() % 5;
-                switch (random)
-                {
-                case 0:
-                    p = BLUE;
-                    break;
-                case 1:
-                    p = GREEN;
-                    break;
-                case 2:
-                    p = YELLOW;
-                    break;
-                case 3:
-                    p = ORANGE;
-                    break;
-                case 4:
-                    p = RED;
-                    break;
-                }
+                p = 'A' + random;
                 board->cells[i][j] = p;
             }
         }
@@ -670,7 +655,7 @@ void renderBoard(Board *board)
 
 void render(Board *board, Player *player1, Player *player2)
 {
-    int i, j;
+    int i;
     clearScreen();
     renderBoard(board);
 
@@ -796,7 +781,7 @@ Direction getDirection(Board *board)
     scanf(" %c", &direction);
     if (direction == 'x')
     {
-        return -1;
+        return NO_DIRECTION;
     }
     if (direction > 'A')
     {
@@ -848,9 +833,7 @@ void undoMove(Board *board, Move *move, Piece taken)
 int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
 {
     char xaxis, yaxis;
-    Piece selected;
     int x, y;
-    char direction;
     Move *move;
     Move last;
     int nextMoveAvailable = 1;
@@ -948,7 +931,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
         while (dirValid == 0)
         {
             Direction dir = getDirection(board);
-            if (dir == -1)
+            if (dir == NO_DIRECTION)
             {
                 return 1;
             }
@@ -1027,7 +1010,7 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
                     while (dirValid == 0)
                     {
                         Direction dir = getDirection(board);
-                        if (dir == -1)
+                        if (dir == NO_DIRECTION)
                         {
                             return 1;
                         }
@@ -1078,7 +1061,6 @@ int calculateBestScore(int N, int **matrix, int posY, int posX, Direction *direc
     int score = 0;
     Direction tmp_direction = 0;
     int maxScore = 0;
-    char dummy;
 
     /* check if can move up */
     if (
@@ -1167,9 +1149,7 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
     */
 
     int i, j, k;
-    int x, y;
     int maxScore = 0;
-    int canMakeMove = 1;
     int score;
 
     int **matrix = (int **)malloc(board->size * sizeof(int *));
@@ -1288,7 +1268,6 @@ int playerMakeMove(Board *board, Player *player, Player *opponent, char *outfile
 void GameLoop(Board *board, Player *player1, Player *player2, char *outfile, int idx)
 {
     int isGameRunning = 1;
-    int i = 0;
     Player* currentPlayer;
     Player* nextPlayer;
     Player* tmp;
@@ -1323,7 +1302,6 @@ int main()
 {
     int N;
     int gameMode;
-    int isGameRunning = 1;
     int i;
     char outfile[50];
     Board *board = NULL;
@@ -1342,6 +1320,12 @@ int main()
 "|||____/|_|\\_\\_| .__/| .__/|_|\\__|\\__, |||\n"
 "||             |_|   |_|          |___/ ||\n"
 "||                            byEnsarGok||\n"
+">>======================================<<\n"
+"||                                      ||\n"
+"|| [Control]                            ||\n"
+"|| W: Up, S: Down, A: Left, D: Right    ||\n"
+"|| Q: Quit, X: Pass                     ||\n"
+"||                                      ||\n"
 ">>======================================<<\n";
 
     clearScreen();
