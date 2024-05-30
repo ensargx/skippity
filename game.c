@@ -1,6 +1,6 @@
 /* Yazar: Ensar Gök
  * Github: https://github.com/ensargx/skippity/ 
- * Youtube: https://youtu.be/khZaJd6rALY 
+ * Youtube: https://youtu.be/yXoMXTjhxLs
  * 
  * Yapısal Programlama Dersi Proje Ödevi
  * compile: gcc -ansi game.c
@@ -847,11 +847,15 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
     {
         for (j = 0; j < board->size; j++)
         {
-            dummy->PieceX = i;
-            dummy->PieceY = j;
-            if (isMoveValid(board, dummy) != INVALID_PIECE)
+            if (board->cells[i][j] != EMPTY)
             {
-                moveAvailable = 1;
+                dummy->PieceX = i;
+                dummy->PieceY = j;
+                if (isNextMoveAvailable(board, dummy))
+                {
+                    moveAvailable = 1;
+                    break;
+                }
             }
         }
     }
@@ -1235,8 +1239,26 @@ int computerMakeMove(Board *board, Player *player, Player *opponent, char *outfi
     }
 
     player->pieces[c - 'A']++;
-    movePiece(board, move);
+    
+    /* calculate the score, */ 
+    int sscore = 1;
+    for (i = 0; i < 5; i++)
+    {
+        if (player->pieces[i] == 0)
+        {
+            sscore = 0;
+        }
+    }
+    if (sscore)
+    {
+        player->score++;
+        for (i = 0; i < 5; i++)
+        {
+            player->pieces[i]--;
+        }
+    }
 
+    movePiece(board, move);
     saveMove(outfile, *move);
 
     /* free */
