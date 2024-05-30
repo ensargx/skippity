@@ -80,6 +80,7 @@ void moveCursor(int x, int y)
     printf("\033[%d;%dH", x, y);
 }
 
+/* print at desired location on screen */
 void printAt(int x, int y, const char *text, ...)
 {
     va_list args;
@@ -169,6 +170,7 @@ void showCursor()
     printf("\033[?25h");
 }
 
+/* Print under the board */
 void printControl(Board *board, char *format, ...)
 {
     moveCursor(PADDING_TOP + 4, PADDING_LEFT + 2 * board->size + 5);
@@ -241,6 +243,12 @@ Piece isMoveValid(Board *board, Move *move)
     return c;
 }
 
+/* Save player to file. This will append to the file
+ *
+ * Parameters:
+ *     filename: name of the file to be written.
+ *     player: pointer to the player struct to be saved.
+ */
 void savePlayer(char *filename, Player *player)
 {
     FILE *file;
@@ -255,6 +263,12 @@ void savePlayer(char *filename, Player *player)
     fclose(file);
 }
 
+/* Load player from file with given id.
+ *
+ * Parameters:
+ *     filename: name of the file which player is located.
+ *     playerId: Id of the player
+ */
 Player *loadPlayer(char *filename, int playerId)
 {
     FILE *file;
@@ -288,6 +302,13 @@ Player *loadPlayer(char *filename, int playerId)
     return player;
 }
 
+/* Save the player's move to a file.
+ *
+ * Parameters:
+ *     filename: name of the file where the move will be saved.
+ *     player: pointer to the Player structure containing player details.
+ *     move: the move to be saved.
+ */
 void saveMove(char *filename, Move move)
 {
     FILE *file;
@@ -301,6 +322,14 @@ void saveMove(char *filename, Move move)
     fclose(file);
 }
 
+/* Load the game board from a file.
+ *
+ * Parameters:
+ *     filename: name of the file which contains the board data.
+ *
+ * Returns:
+ *     A pointer to the Board structure with the loaded data.
+ */
 Board* loadBoard(char *filename)
 {
     FILE *file;
@@ -331,7 +360,14 @@ Board* loadBoard(char *filename)
     return board;
 }
 
-/* Initialize the board with random pieces */
+/* Initialize a game board with given size N.
+ *
+ * Parameters:
+ *     N: the size of the board (N x N).
+ *
+ * Returns:
+ *     A pointer to the initialized Board structure with size N x N.
+ */
 Board *initBoard(int N)
 {
     int i, j, random;
@@ -384,7 +420,12 @@ Board *initBoard(int N)
     return board;
 }
 
-/* Save the board to a file */ 
+/* Save the game board to a file.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure containing the board data.
+ *     filename: name of the file where the board will be saved.
+ */
 void saveBoard(Board *board, char *filename)
 {
     FILE *file;
@@ -408,6 +449,16 @@ void saveBoard(Board *board, char *filename)
     fclose(file);
 }
 
+/* Create a new move with specified coordinates and direction.
+ *
+ * Parameters:
+ *     x: the x-coordinate of the move.
+ *     y: the y-coordinate of the move.
+ *     direction: the direction of the move.
+ *
+ * Returns:
+ *     A pointer to the newly created Move structure.
+ */
 Move *createMove(int x, int y, Direction direction)
 {
     Move *move = (Move *)malloc(sizeof(Move));
@@ -419,7 +470,11 @@ Move *createMove(int x, int y, Direction direction)
     return move;
 }
 
-/* Free the memory allocated for the board */
+/* Free the memory allocated for the game board.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure to be freed.
+ */
 void freeBoard(Board *board)
 {
     int i;
@@ -431,6 +486,11 @@ void freeBoard(Board *board)
     free(board);
 }
 
+/* Update the player's score based on the pieces they have.
+ *
+ * Parameters:
+ *     p1: pointer to the Player structure whose score will be updated.
+ */
 void loadScores(Player *p1)
 {
     int scoreAvail = 1;
@@ -454,7 +514,6 @@ void loadScores(Player *p1)
             }
         }
     }
-
 }
 
 void renderBoard(Board *board);
@@ -638,6 +697,12 @@ void render(Board *board, Player *player1, Player *player2)
     }
 }
 
+/* Move a piece on the board according to the given move.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure containing the game board.
+ *     move: pointer to the Move structure detailing the move to be made.
+ */
 void movePiece(Board *board, Move *move)
 {
     if (move == NULL)
@@ -656,6 +721,15 @@ void movePiece(Board *board, Move *move)
     return movePiece(board, move->next);
 }
 
+/* Check if a next move is available from the current move position.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure containing the game board.
+ *     move: pointer to the Move structure containing the current move position.
+ *
+ * Returns:
+ *     1 if a next move is available, 0 otherwise.
+ */
 int isNextMoveAvailable(Board *board, Move *move)
 {
     /* check if can move right */ 
@@ -706,6 +780,15 @@ int isNextMoveAvailable(Board *board, Move *move)
     return 0;
 }
 
+/* Get the direction from user input.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure used for error printing if needed.
+ *
+ * Returns:
+ *     The direction entered by the user as a Direction enum value.
+ *     Returns -1 if the input is 'x'.
+ */
 Direction getDirection(Board *board)
 {
     char direction;
@@ -741,6 +824,13 @@ Direction getDirection(Board *board)
     return -1;
 }
 
+/* Undo a move on the board and restore the taken piece.
+ *
+ * Parameters:
+ *     board: pointer to the Board structure containing the game board.
+ *     move: pointer to the Move structure detailing the move to be undone.
+ *     taken: the piece that was taken during the move.
+ */
 void undoMove(Board *board, Move *move, Piece taken)
 {
     int toBottom = move->direction == DOWN ? +2 : move->direction == UP ? -2 : 0;
@@ -970,6 +1060,18 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
     return 1;
 }
 
+/* Calculate the best score for a given position and direction.
+ *
+ * Parameters:
+ *     N: the size of the matrix (assuming it's a square matrix).
+ *     matrix: a pointer to a 2D array representing the game matrix.
+ *     posY: the y-coordinate of the current position.
+ *     posX: the x-coordinate of the current position.
+ *     direction: a pointer to a Direction variable to set the best direction.
+ *
+ * Returns:
+ *     The best score calculated for the given position and direction.
+ */
 int calculateBestScore(int N, int **matrix, int posY, int posX, Direction *direction)
 {
     int tmpScore;
@@ -1347,4 +1449,3 @@ int main()
 
     return 0;
 }
-
