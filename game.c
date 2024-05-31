@@ -294,7 +294,6 @@ Player *loadPlayer(char *filename, int playerId)
                 player->id = id;
                 player->type = type;
                 strncpy(player->name, name, 50);
-                break;
             }
         }
     }
@@ -854,7 +853,6 @@ int humanMakeMove(Board *board, Player *player, Player *Opponent, char *outfile)
                 if (isNextMoveAvailable(board, dummy))
                 {
                     moveAvailable = 1;
-                    break;
                 }
             }
         }
